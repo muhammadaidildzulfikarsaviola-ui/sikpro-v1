@@ -50,6 +50,6 @@ test_rejects_empty_mismatched_negative_zero_and_nonfinite_inputs (test_spc_valid
 test_light_is_default_and_theme_round_trips_without_losing_other_settings (test_theme.ThemePersistenceTests.test_light_is_default_and_theme_round_trips_without_losing_other_settings) ... ok
 
 ----------------------------------------------------------------------
-Ran 50 tests in 2.496s
+Ran 50 tests in 3.877s
 
 OK

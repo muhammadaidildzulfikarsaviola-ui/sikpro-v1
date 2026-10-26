@@ -415,7 +415,7 @@ class HistogramChartPopup(EmbeddedChartFrame):
         )
 
         self.ax.set_title(
-            self.main.t("simpe_histogram"),
+            self.main.t("simple_histogram"),
             fontsize=14,
             pad=15
         )

@@ -1,0 +1,18 @@
+PASS Histogram
+PASS Pareto
+PASS Scatter
+PASS Xbar-R
+PASS Xbar-S
+PASS p
+PASS np
+PASS c
+PASS u
+RECORD ('Histogram', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\histogram-light.png', (1.0, 1.0, 1.0, 1.0), ['Simple Histogram']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\histogram-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['Simple Histogram']), (952, 612), (814, 565))
+RECORD ('Pareto', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\pareto-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['Pareto Chart', '']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\pareto-light.png', (1.0, 1.0, 1.0, 1.0), ['Pareto Chart', '']), (814, 609), (954, 669))
+RECORD ('Scatter', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\scatter-light.png', (1.0, 1.0, 1.0, 1.0), ['Scatterplot']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\scatter-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['Scatterplot']), (954, 669), (814, 609))
+RECORD ('Xbar-R', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\xbar_r-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['Xbar-R Chart - Measurement', 'R Chart of - Measurement']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\xbar_r-light.png', (1.0, 1.0, 1.0, 1.0), ['Xbar-R Chart - Measurement', 'R Chart of - Measurement']), (556, 800), (556, 800))
+RECORD ('Xbar-S', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\xbar_s-light.png', (1.0, 1.0, 1.0, 1.0), ['Xbar Chart - Measurement', 'S Chart - Measurement']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\xbar_s-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['Xbar Chart - Measurement', 'S Chart - Measurement']), (556, 800), (556, 800))
+RECORD ('p', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\p-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['P Chart - Defective proportion']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\p-light.png', (1.0, 1.0, 1.0, 1.0), ['P Chart - Defective proportion']), (570, 566), (570, 626))
+RECORD ('np', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\np-light.png', (1.0, 1.0, 1.0, 1.0), ['NP Chart - Defective count']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\np-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['NP Chart - Defective count']), (570, 626), (570, 566))
+RECORD ('c', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\c-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['C Chart - Defect count']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\c-light.png', (1.0, 1.0, 1.0, 1.0), ['C Chart - Defect count']), (570, 566), (570, 626))
+RECORD ('u', ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\u-light.png', (1.0, 1.0, 1.0, 1.0), ['U Chart - Defects per unit']), ('D:\\Code\\Sikpro-v1\\test-evidence\\chart-visual\\u-dark.png', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), ['U Chart - Defects per unit']), (614, 689), (614, 629))

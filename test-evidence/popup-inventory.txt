@@ -1,0 +1,133 @@
+project_managers\project_manager.py:7:from tkinter import filedialog, messagebox
+project_managers\project_manager.py:24:        confirm = messagebox.askyesno(
+project_managers\project_manager.py:46:        filepath = filedialog.asksaveasfilename(
+project_managers\project_manager.py:62:        filepath = filedialog.askopenfilename(
+project_managers\project_manager.py:100:        messagebox.showinfo(
+project_managers\project_manager.py:107:        filepath = filedialog.askopenfilename(
+project_managers\project_manager.py:121:            messagebox.showerror(
+project_managers\project_manager.py:132:        messagebox.showinfo(
+project_managers\project_manager.py:139:        messagebox.showinfo(
+project_managers\project_manager.py:168:        messagebox.showinfo(
+project_managers\project_manager.py:179:            messagebox.showerror(
+project_managers\project_manager.py:186:        filepath = filedialog.asksaveasfilename(
+project_managers\project_manager.py:196:        if os.path.exists(filepath) and not messagebox.askyesno(
+project_managers\project_manager.py:206:            messagebox.showerror(
+project_managers\project_manager.py:213:        messagebox.showinfo(
+logic\converter.py:2:from tkinter import ttk, messagebox
+logic\converter.py:91:class AttributeConverterPopup(tk.Toplevel):
+logic\converter.py:279:            messagebox.showerror(
+logic\converter.py:342:class AttributePreviewPopup(tk.Toplevel):
+logic\converter.py:538:            messagebox.showerror(
+logic\converter.py:545:        messagebox.showinfo(
+logic\histogram.py:3:from tkinter import ttk,messagebox
+logic\histogram.py:12:class HistogramMenuPopup(tk.Toplevel):
+logic\histogram.py:75:class HistogramConfigPopup(tk.Toplevel):
+logic\histogram.py:163:            messagebox.showerror(
+logic\histogram.py:172:            messagebox.showerror(
+logic\histogram.py:187:                messagebox.showerror(
+logic\histogram.py:204:class HistogramChartPopup(EmbeddedChartFrame):
+logic\c_chart.py:4:from tkinter import ttk, messagebox
+logic\c_chart.py:72:class CChartConfigPopup(tk.Toplevel):
+logic\c_chart.py:256:            messagebox.showerror(
+logic\c_chart.py:299:            messagebox.showerror(
+logic\c_chart.py:309:class CChartPopup(EmbeddedChartFrame):
+ui\ui.py:698:        self.popup=tk.Toplevel(self.main.root)
+logic\i_chart.py:1:from tkinter import ttk, messagebox
+logic\i_chart.py:4:class IndividualConfigPopup(tk.Toplevel):
+logic\i_chart.py:14:        messagebox.showerror(
+logic\i_chart.py:20:class IndividualChartPopup(tk.Toplevel):
+logic\i_chart.py:30:        messagebox.showerror(
+ui\theme.py:182:            if isinstance(widget, (tk.Toplevel, tk.Menu)):
+logic\imr_chart.py:4:from tkinter import ttk, messagebox
+logic\imr_chart.py:235:class IMRConfigPopup(tk.Toplevel):
+logic\imr_chart.py:386:            messagebox.showerror(
+logic\imr_chart.py:414:            messagebox.showerror(
+logic\imr_chart.py:448:class IMRChartPopup(EmbeddedChartFrame):
+ui\quality_tools.py:5:from tkinter import filedialog, messagebox, ttk
+ui\quality_tools.py:58:        messagebox.showerror(self.main.t("error"), self.main.t(key) if key else text, parent=self.main.root)
+ui\quality_tools.py:167:        if not messagebox.askyesno(self.main.t("delete_category"), self.main.t("confirm_delete_category"), parent=self.main.root): return
+ui\quality_tools.py:217:            messagebox.showerror(self.main.t("error"), self.main.t("effect_required"), parent=self.main.root); return
+ui\quality_tools.py:219:        path = filedialog.asksaveasfilename(parent=self.main.root, defaultextension=f".{ext}", initialfile=f"{base}.{ext}", filetypes=[(ext.upper(), f"*.{ext}")])
+ui\quality_tools.py:225:            messagebox.showinfo(self.main.t("export_success"), path, parent=self.main.root)
+ui\quality_tools.py:229:class CauseEditorDialog(tk.Toplevel):
+ui\quality_tools.py:310:            messagebox.showerror(self.main.t("error"), self.main.t(key) if key else str(exc), parent=self)
+ui\quality_tools.py:320:class CategoryTextDialog:
+ui\quality_tools.py:324:        dialog = tk.Toplevel(main.root)
+ui\quality_tools.py:347:class CategoryPicker(tk.Toplevel):
+ui\quality_tools.py:391:        if not messagebox.askyesno(self.main.t("delete_category"),self.main.t("confirm_delete_category"),parent=self.main.root):return
+ui\quality_tools.py:396:            messagebox.showinfo(self.main.t("check_sheet"),self.main.t("add_category_first"),parent=self.main.root);return
+ui\quality_tools.py:397:        dialog=tk.Toplevel(self.main.root);dialog.title(self.main.t("add_record" if record is None else "edit_record"));dialog.transient(self.main.root);dialog.grab_set()
+ui\quality_tools.py:423:        if self.model.records and messagebox.askyesno(self.main.t("clear_records"),self.main.t("confirm_clear_records"),parent=self.main.root):self.model.clear();self.refresh()
+ui\quality_tools.py:484:        if not messagebox.askyesno(self.main.t("delete_category"),prompt,parent=self.main.root):return
+ui\quality_tools.py:508:        path=filedialog.asksaveasfilename(parent=self.main.root,defaultextension=f".{ext}",initialfile=f"defect_concentration.{ext}",filetypes=[(ext.upper(),f"*.{ext}")])
+ui\quality_tools.py:514:            messagebox.showinfo(self.main.t("export_success"),path,parent=self.main.root)
+ui\quality_tools.py:518:            messagebox.showinfo(self.main.t("defect_concentration"),self.main.t("select_mark_first"),parent=self.main.root)
+ui\quality_tools.py:525:            messagebox.showinfo(self.main.t("defect_concentration"),self.main.t("select_mark_first"),parent=self.main.root)
+logic\np_chart.py:4:from tkinter import ttk, messagebox
+logic\np_chart.py:97:class NPChartConfigPopup(tk.Toplevel):
+logic\np_chart.py:314:            messagebox.showerror(
+logic\np_chart.py:329:            messagebox.showerror(
+logic\np_chart.py:377:            messagebox.showerror(
+logic\np_chart.py:387:class NPChartPopup(EmbeddedChartFrame):
+logic\p_chart.py:4:from tkinter import ttk, messagebox
+logic\p_chart.py:95:class PChartConfigPopup(tk.Toplevel):
+logic\p_chart.py:312:            messagebox.showerror(
+logic\p_chart.py:327:            messagebox.showerror(
+logic\p_chart.py:375:            messagebox.showerror(
+logic\p_chart.py:385:class PChartPopup(EmbeddedChartFrame):
+logic\mr_chart.py:2:from tkinter import ttk, messagebox
+logic\mr_chart.py:5:class MovingRangeConfigPopup(tk.Toplevel):
+logic\mr_chart.py:15:        messagebox.showerror(
+logic\mr_chart.py:23:class MovingRangeChartPopup(tk.Toplevel):
+logic\mr_chart.py:33:        messagebox.showerror(
+logic\pareto.py:3:from tkinter import ttk, messagebox
+logic\pareto.py:15:class ParetoConfigPopup(tk.Toplevel):
+logic\pareto.py:208:            messagebox.showerror(
+logic\pareto.py:223:            messagebox.showerror(
+logic\pareto.py:232:            messagebox.showerror(
+logic\pareto.py:250:            messagebox.showerror(
+logic\pareto.py:261:class ParetoChartPopup(EmbeddedChartFrame):
+logic\rbar.py:2:from tkinter import ttk, messagebox
+logic\rbar.py:5:class RbarConfigPopup(tk.Toplevel):
+logic\rbar.py:15:        messagebox.showerror(
+logic\rbar.py:23:class RbarChartPopup(tk.Toplevel):
+logic\rbar.py:33:        messagebox.showerror(
+ui\dialogs.py:146:        if not isinstance(window, tk.Toplevel) or window is root:
+ui\dialogs.py:168:    from tkinter import filedialog, messagebox
+ui\dialogs.py:169:    for module, names in ((messagebox, ("showinfo", "showwarning", "showerror", "askyesno", "askokcancel", "askretrycancel", "askyesnocancel")),
+ui\dialogs.py:170:                          (filedialog, ("askopenfilename", "asksaveasfilename", "askopenfilenames", "askopenfile", "askopenfiles", "asksaveasfile", "askdirectory"))):
+logic\scatter.py:3:from tkinter import ttk, messagebox
+logic\scatter.py:17:class ScatterMenuPopup(tk.Toplevel):
+logic\scatter.py:85:class ScatterConfigPopup(tk.Toplevel):
+logic\scatter.py:247:            messagebox.showerror(
+logic\scatter.py:266:            messagebox.showerror(
+logic\scatter.py:300:            messagebox.showerror(
+logic\scatter.py:310:class ScatterChartPopup(EmbeddedChartFrame):
+logic\scatter.py:541:                    messagebox.showerror(
+logic\sbar.py:2:from tkinter import ttk, messagebox
+logic\sbar.py:5:class SbarConfigPopup(tk.Toplevel):
+logic\sbar.py:15:        messagebox.showerror(
+logic\sbar.py:23:class SbarChartPopup(tk.Toplevel):
+logic\sbar.py:33:        messagebox.showerror(
+logic\u_chart.py:4:from tkinter import ttk, messagebox
+logic\u_chart.py:117:class UChartModePopup(tk.Toplevel):
+logic\u_chart.py:180:class UChartConfigPopup(tk.Toplevel):
+logic\u_chart.py:391:            messagebox.showerror(
+logic\u_chart.py:400:            messagebox.showerror(
+logic\u_chart.py:444:class UChartPopup(EmbeddedChartFrame):
+logic\u_chart.py:760:class UChartConvertedPopup(tk.Toplevel):
+logic\u_chart.py:925:            messagebox.showerror(
+logic\validation.py:58:            from tkinter import messagebox
+logic\validation.py:88:            messagebox.showerror(
+logic\xbar_s.py:4:from tkinter import ttk, messagebox
+logic\xbar_s.py:282:class XbarSConfigPopup(tk.Toplevel):
+logic\xbar_s.py:608:            messagebox.showerror(
+logic\xbar_s.py:631:                    messagebox.showerror(
+logic\xbar_s.py:760:            messagebox.showerror(
+logic\xbar_s.py:769:class XbarSChartPopup(EmbeddedChartFrame):
+logic\xbar_r.py:4:from tkinter import ttk, messagebox
+logic\xbar_r.py:315:class XbarRConfigPopup(tk.Toplevel):
+logic\xbar_r.py:643:            messagebox.showerror(
+logic\xbar_r.py:666:                    messagebox.showerror(
+logic\xbar_r.py:795:            messagebox.showerror(
+logic\xbar_r.py:804:class XbarRChartPopup(EmbeddedChartFrame):

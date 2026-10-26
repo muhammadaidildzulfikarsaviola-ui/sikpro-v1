@@ -4,17 +4,17 @@
 
 | Status | Records |
 |---|---:|
-| PASS | 31 |
-| FAIL | 4 |
-| BLOCKED | 2 |
-| NOT RUN | 1 |
-| **Total** | **38** |
+| PASS | 45 |
+| FAIL | 7 |
+| BLOCKED | 7 |
+| NOT RUN | 3 |
+| **Total** | **62** |
 
-Counts include initial failed/blocked runs separately from their passing reruns, as required. `CHART-004` is intentionally `NOT RUN`; it records the remaining SPC chart families whose visual appearance was not individually opened and checked.
+Counts include initial failures and blocked runs separately from passing reruns. The original `CHART-004 — NOT RUN` record is retained as the pre-QA baseline; it is followed by per-family visual reruns. R and S remain unavailable under the application's maintenance placeholders. Full Windows common file-dialog interaction and non-100% DPI verification remain unresolved.
 
 ## Environment
 
-`ENV-1` for the Tk GUI records: Windows 10 build 26300 (64-bit), Python 3.11.9, Tk 8.6, two monitors: `(0,0)-(1536,864)` and `(1920,0)-(3280,768)`, work areas `(48,0)-(1536,864)` and `(1968,0)-(3280,768)`. The GUI smoke tests created real Tk windows and widgets and used real Tk event dispatch (`event_generate`) and `update`; the script drove controls programmatically. DPI scaling was not measured. No screenshot of the desktop was captured. Fishbone exports were inspected as actual rendered artifacts.
+`ENV-1` for the Tk GUI records: Windows 10 build 26300 (64-bit), Python 3.11.9, Tk 8.6, two monitors: `(0,0)-(1536,864)` and `(1920,0)-(3280,768)`, work areas `(48,0)-(1536,864)` and `(1968,0)-(3280,768)`. Both monitors report 96 DPI (100% scaling); a non-100% setting was not tested. The GUI smoke tests created real Tk windows and widgets and used real Tk event dispatch (`event_generate`) and `update`; the scripts drove controls programmatically. No screenshot of the desktop was captured. Actual app-rendered chart figures and Fishbone exports were saved and visually inspected.
 
 `ENV-2` means the same Windows/Python environment without a display dependency; used for compile, test, and diff commands.
 
@@ -22,13 +22,17 @@ Counts include initial failed/blocked runs separately from their passing reruns,
 
 | Command | Exit | Observed output |
 |---|---:|---|
-| `python -m compileall -q core logic models project_managers ui tests` | 0 | Completed with no syntax errors. |
+| `python -m compileall -q core logic models project_managers ui tests test-evidence/chart_visual_smoke.py test-evidence/popup_smoke.py test-evidence/dpi_probe.py test-evidence/native_dialog_probe.py` | 0 | Completed with no syntax errors. |
 | `python -m unittest tests.test_fishbone_editor_gui tests.test_theme -v` | 0 (final) | 8 tests passed, including Tk keyboard tests. See `FISH-THEME-targeted-tests.txt`. |
 | `python -m unittest discover -s tests -v` | 0 | 50 tests passed. See `REG-001-test-output.txt`. |
 | `git diff --check` | 0 | No whitespace errors. |
 | `python test-evidence/gui_smoke.py` | 0 (final) | Actual Tk workflow assertions passed; see `gui-smoke-output.txt`. |
 | `python test-evidence/export_smoke.py` | 0 (final) | Fishbone PNG/PDF exports passed in Light and Dark; see `export-smoke-output.txt`. |
 | `python test-evidence/defect_export_smoke.py` | 0 | Defect Concentration PNG/PDF exports passed; see `defect-export-smoke-output.txt`. |
+| `$env:APPDATA='test-evidence\qa-appdata'; python test-evidence/chart_visual_smoke.py` | 0 (final) | Nine available live chart families rendered and resized in Light/Dark; see `chart-visual-output.txt` and `chart-visual/`. |
+| `$env:APPDATA='test-evidence\qa-appdata'; python test-evidence/popup_smoke.py` | 0 (final) | Twelve reachable popup/config surfaces opened, themed, closed, and reopened; see `popup-smoke-output.txt`. |
+| `python test-evidence/dpi_probe.py` | 0 | Two monitors enumerated; both 96 DPI (100%); see `dpi-probe-output.txt`. |
+| `$env:APPDATA='test-evidence\qa-appdata'; python test-evidence/native_dialog_probe.py` | 0 (probe only) | No native Open dialog appeared in the visible-window inventory; this is evidence for BLOCKED, not a passing file-dialog test. |
 
 ## Individual records
 
@@ -418,7 +422,7 @@ Counts include initial failed/blocked runs separately from their passing reruns,
 | Expected result | Valid one-page PDF in each mode with readable figure palette. |
 | Actual result | Both PDFs start `%PDF`, each has one page, and nonzero output; figure facecolor matched selected theme. |
 | Status | PASS |
-| Evidence | `EXPORT-002-fishbone.pdf`, `EXPORT-002-fishbone-dark.pdf`, `export-smoke-output.txt`. |
+| Evidence | `EXPORT-002-fishbone.pdf`, `EXPORT-002-fishbone-dark.pdf`, `EXPORT-FOLLOWUP-002-fishbone.pdf`, `EXPORT-FOLLOWUP-002-fishbone-dark.pdf`, `export-smoke-output.txt`. |
 | Environment | ENV-1 |
 | Notes | Export was exercised through the actual app method; native file chooser was replaced with a temporary test path. |
 
@@ -433,7 +437,7 @@ Counts include initial failed/blocked runs separately from their passing reruns,
 | Expected result | Valid image and one-page PDF. |
 | Actual result | PNG `674x782`; PDF begins `%PDF` and contains one page; both have nonzero size. |
 | Status | PASS |
-| Evidence | `EXPORT-003-defect-concentration.png`, `EXPORT-003-defect-concentration.pdf`, `defect-export-smoke-output.txt`. |
+| Evidence | `EXPORT-003-defect-concentration.png`, `EXPORT-003-defect-concentration.pdf`, `EXPORT-FOLLOWUP-003-defect-concentration.pdf`, `defect-export-smoke-output.txt`. |
 | Environment | ENV-1 |
 | Notes | Check Sheet has no export action in its current UI; no Check Sheet export was applicable. |
 
@@ -519,7 +523,7 @@ Counts include initial failed/blocked runs separately from their passing reruns,
 | Feature | Python syntax compilation |
 | Objective | Compile relevant application and test modules. |
 | Preconditions | Current working tree; ENV-2. |
-| Test procedure | `python -m compileall -q core logic models project_managers ui tests`. |
+| Test procedure | `python -m compileall -q core logic models project_managers ui tests test-evidence/chart_visual_smoke.py test-evidence/popup_smoke.py test-evidence/dpi_probe.py test-evidence/native_dialog_probe.py`. |
 | Expected result | Exit 0 with no syntax errors. |
 | Actual result | Exit 0; no output. |
 | Status | PASS |
@@ -601,4 +605,366 @@ Counts include initial failed/blocked runs separately from their passing reruns,
 | Evidence | `gui_smoke.py`, `gui-smoke-output.txt`. |
 | Environment | ENV-1 |
 | Notes | Previous view was measured before navigating away. |
+
+## Follow-up visual QA — 2026-10-26
+
+### CHART-004-HISTOGRAM — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | Histogram chart family |
+| Objective | Inspect actual embedded plot readability in both themes, theme switching, and resize. |
+| Preconditions | ENV-1; live MainPage; representative six-value numeric dataset; actual HistogramChartPopup. |
+| Test procedure | `$env:APPDATA='test-evidence\qa-appdata'; python test-evidence/chart_visual_smoke.py`; create the actual workspace in Light, switch the same figure to Dark, save PNGs, resize the host, and inspect both renders. |
+| Expected result | Light/Dark figure and axes use their palette; title, ticks, bars, and grid remain readable; resize redraws. |
+| Actual result | Light face `(1,1,1,1)`, Dark face `#202833`; chart resized from `952x612` to `814x565`; title shows “Simple Histogram”; assertions passed. |
+| Status | PASS |
+| Evidence | `chart-visual/histogram-light.png`, `chart-visual/histogram-dark.png`, `chart-visual-output.txt`, `chart_visual_smoke.py`. |
+| Environment | ENV-1; chart canvas was a live Tk widget. |
+| Notes | Figure was constructed by the application's chart view with representative data; calculations were not under test here. |
+
+### CHART-004-PARETO — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | Pareto chart family |
+| Objective | Inspect bars, cumulative line/percent annotations, dual axes, theme update, and resize. |
+| Preconditions | ENV-1; live ParetoChartPopup; unique defect categories with frequencies 9, 6, and 4. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; capture the existing view in Light and Dark and inspect the app-rendered images. |
+| Expected result | Bars, cumulative percentages, both axes, and labels remain legible in each palette and after resizing. |
+| Actual result | Both figures had the expected facecolors; cumulative labels rendered 47.4%, 78.9%, 100.0%; canvas resized from `814x609` to `954x669`. |
+| Status | PASS |
+| Evidence | `chart-visual/pareto-light.png`, `chart-visual/pareto-dark.png`, `chart-visual/contact-sheet.png`, `chart-visual-output.txt`. |
+| Environment | ENV-1; actual Tk chart workspace and Matplotlib figure. |
+| Notes | Exploratory dataset initially repeated categories while also providing a frequency column, producing an invalid test fixture with overlapping points. The final run uses unique category rows; the initial screenshot was overwritten and is not claimed as product failure evidence. |
+
+### CHART-004-SCATTER — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | Scatter chart family |
+| Objective | Check marker contrast, axis labels/ticks, existing figure theme update, and resize. |
+| Preconditions | ENV-1; live ScatterChartPopup; six finite X/Y observations. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; inspect saved Light/Dark figures and resize the actual embedded canvas. |
+| Expected result | Points and axis text stay visible and the view redraws after theme and size changes. |
+| Actual result | Both palette backgrounds and the six plotted points were visible; the canvas resized from `954x669` to `814x609`. |
+| Status | PASS |
+| Evidence | `chart-visual/scatter-light.png`, `chart-visual/scatter-dark.png`, `chart-visual-output.txt`. |
+| Environment | ENV-1. |
+| Notes | Simple scatter mode; regression and grouped scatter rendering were not part of this chart-family sample. |
+
+### CHART-004-XBAR-R — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | X-bar R chart family |
+| Objective | Check both panels, limits/center lines, legends, annotations, theme update, and resize. |
+| Preconditions | ENV-1; actual XbarRChartPopup with five subgroups and explicit center/control limits. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; render each theme and compare each range-line label to its actual y coordinate. |
+| Expected result | Text and control lines remain distinct in Light/Dark; UCL is attached to upper limit and LCL to lower limit. |
+| Actual result | Both panels legible; range lines map `LCL = 0.0` to y=0 and `UCL = 0.94` to y=0.94 after correction; canvas `556x800`. |
+| Status | PASS |
+| Evidence | `chart-visual/xbar_r-light.png`, `chart-visual/xbar_r-dark.png`, `chart-visual-output.txt`; assertions in `chart_visual_smoke.py`. |
+| Environment | ENV-1; live Tk chart workspace. |
+| Notes | The first visual run revealed the UCL/LCL legend labels were attached to the opposite range lines. Small fix is in `logic/xbar_r.py`; initial failure is recorded below. |
+
+### CHART-004-XBAR-S — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | X-bar S chart family |
+| Objective | Check both panels, limits, legends, theme update, and resize. |
+| Preconditions | ENV-1; actual XbarSChartPopup with five subgroups and explicit limits. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; render Light/Dark and resize the embedded canvas. |
+| Expected result | Both panels remain readable with their control lines and labels in both themes. |
+| Actual result | Both panel faces and text were legible; same view updated from Light to Dark; canvas `556x800`. |
+| Status | PASS |
+| Evidence | `chart-visual/xbar_s-light.png`, `chart-visual/xbar_s-dark.png`, `chart-visual-output.txt`. |
+| Environment | ENV-1. |
+| Notes | Representative valid subgroup summaries supplied to the actual chart view; subgroup calculation itself remains covered by `REG-001`. |
+
+### CHART-004-P — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | p chart family |
+| Objective | Check proportions, varying control-limit lines, center line, legend, theme update, and resize. |
+| Preconditions | ENV-1; actual PChartPopup with five proportions and UCL/LCL vectors. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; save each palette and resize. |
+| Expected result | Lines and labels are readable, limits distinguishable, and the chart redraws. |
+| Actual result | Both themes rendered with expected facecolors and visible p/UCL/LCL/p-bar lines; canvas changed `570x566` to `570x626`. |
+| Status | PASS |
+| Evidence | `chart-visual/p-light.png`, `chart-visual/p-dark.png`, `chart-visual-output.txt`. |
+| Environment | ENV-1. |
+| Notes | Visual sample used explicit representative control limits; no analytical values were recalculated by theme switching. |
+
+### CHART-004-NP — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | np chart family |
+| Objective | Check count series, control limits, labels, theme update, and resize. |
+| Preconditions | ENV-1; actual NPChartPopup with five counts and limits. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; save Light/Dark views and resize. |
+| Expected result | Count data, limits, and legends remain legible after theme changes and resizing. |
+| Actual result | Both palette renders and all lines/labels were visible; canvas changed `570x626` to `570x566`. |
+| Status | PASS |
+| Evidence | `chart-visual/np-light.png`, `chart-visual/np-dark.png`, `chart-visual-output.txt`. |
+| Environment | ENV-1. |
+| Notes | Chart view was instantiated with representative result data. |
+
+### CHART-004-C — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | c chart family |
+| Objective | Check count series, center/control lines, legend, theme update, and resize. |
+| Preconditions | ENV-1; actual CChartPopup with five counts and explicit limits. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; inspect app-rendered images in both themes and resize. |
+| Expected result | Chart lines and axis/legend text remain readable in Light and Dark. |
+| Actual result | Both faces, labels, limits, and center line were visible; canvas changed `570x566` to `570x626`. |
+| Status | PASS |
+| Evidence | `chart-visual/c-light.png`, `chart-visual/c-dark.png`, `chart-visual-output.txt`. |
+| Environment | ENV-1. |
+| Notes | Representative chart result payload was passed to the real view. |
+
+### CHART-004-U — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | u chart family |
+| Objective | Check unit-rate series, control limits, labels, theme update, and resize. |
+| Preconditions | ENV-1; actual UChartPopup with five rate observations and limit vectors. |
+| Test procedure | Run `python test-evidence/chart_visual_smoke.py`; capture Light/Dark and resize. |
+| Expected result | Data, control lines, title, and axes remain legible and redraw at a new size. |
+| Actual result | Both palette renders were visible; canvas changed `614x689` to `614x629`. |
+| Status | PASS |
+| Evidence | `chart-visual/u-light.png`, `chart-visual/u-dark.png`, `chart-visual-output.txt`. |
+| Environment | ENV-1. |
+| Notes | Representative result payload used; numerical limit calculation was not changed. |
+
+### CHART-004-R — BLOCKED
+
+| Field | Record |
+|---|---|
+| Feature | Standalone R chart |
+| Objective | Inspect R chart Light/Dark display and resizing. |
+| Preconditions | ENV-1 available; application UI inspection. |
+| Test procedure | Inspect `logic/rbar.py` and the application chart menu. |
+| Expected result | A usable R chart opens for visual inspection. |
+| Actual result | The UI disables R-bar and `RbarConfigPopup`/`RbarChartPopup` only show “Under Maintenance” then destroy themselves; no chart exists to render. |
+| Status | BLOCKED |
+| Evidence | `logic/rbar.py`; `ui/ui.py` subgroup menu; `popup-inventory.txt`. |
+| Environment | ENV-1; GUI available. |
+| Notes | Product capability blocker, not an environment issue. No chart theme claim is made for this placeholder. |
+
+### CHART-004-S — BLOCKED
+
+| Field | Record |
+|---|---|
+| Feature | Standalone S chart |
+| Objective | Inspect S chart Light/Dark display and resizing. |
+| Preconditions | ENV-1 available; application UI inspection. |
+| Test procedure | Inspect `logic/sbar.py` and the application chart menu. |
+| Expected result | A usable standalone S chart opens for visual inspection. |
+| Actual result | S-bar is disabled and `SbarConfigPopup`/`SbarChartPopup` only show “Under Maintenance” then destroy themselves. Xbar-S was tested separately above. |
+| Status | BLOCKED |
+| Evidence | `logic/sbar.py`; `ui/ui.py` subgroup menu; `popup-inventory.txt`. |
+| Environment | ENV-1; GUI available. |
+| Notes | Product capability blocker; standalone S is distinct from the S panel inside Xbar-S. |
+
+### CHART-004-HISTOGRAM — FAIL (initial visual run)
+
+| Field | Record |
+|---|---|
+| Feature | Histogram chart title |
+| Objective | Confirm chart title is correctly localized/displayed. |
+| Preconditions | ENV-1; actual simple HistogramChartPopup. |
+| Test procedure | Initial `python test-evidence/chart_visual_smoke.py`; inspect its actual figure title. |
+| Expected result | “Simple Histogram” in English. |
+| Actual result | The UI looked up misspelled localization key `simpe_histogram`, so it displayed the raw typo. |
+| Status | FAIL |
+| Evidence | Initial live figure inspection; no durable initial PNG/log was retained because rerun output replaced it. |
+| Environment | ENV-1. |
+| Notes | Confirmed application defect; corrected key and verified in the passing rerun above. Initial visual artifact is unavailable and not represented as a current screenshot. |
+
+### CHART-004-XBAR-R — FAIL (initial visual run)
+
+| Field | Record |
+|---|---|
+| Feature | Xbar-R range limit legend |
+| Objective | Verify the UCL and LCL legend values correspond to their plotted lines. |
+| Preconditions | ENV-1; actual XbarRChartPopup with R LCL=0 and UCL=0.94. |
+| Test procedure | Initial live figure inspection of the R-panel line labels and y coordinates. |
+| Expected result | UCL label on y=0.94; LCL label on y=0. |
+| Actual result | The labels were reversed: the y=0 line was labelled UCL=0.94 and y=0.94 was labelled LCL=0.0. |
+| Status | FAIL |
+| Evidence | Initial chart render observed during first visual run; the pre-fix image was overwritten on rerun, so no durable initial image exists. |
+| Environment | ENV-1. |
+| Notes | Confirmed application defect; fixed both label bindings and rerun assertions passed. Numerical limits and plotted data did not change. |
+
+### CHART-005 — PASS
+
+| Field | Record |
+|---|---|
+| Feature | Visual QA regression fixes |
+| Objective | Prevent regressions in Histogram title lookup and Xbar-R range limit labels. |
+| Preconditions | ENV-1; corrected `logic/histogram.py` and `logic/xbar_r.py`. |
+| Test procedure | `python test-evidence/chart_visual_smoke.py`; assert exact title `Simple Histogram` and map actual line labels to y coordinates before and after theme switching. |
+| Expected result | Correct localized key is used; `LCL = 0.0` belongs to y=0 and `UCL = 0.94` belongs to y=0.94 in both themes. |
+| Actual result | All assertions passed; all nine supported chart views passed Light/Dark rendering checks. |
+| Status | PASS |
+| Evidence | `chart_visual_smoke.py`, `chart-visual-output.txt`, relevant PNGs in `chart-visual/`. |
+| Environment | ENV-1. |
+| Notes | Theme changes did not modify chart result payloads. |
+
+### DIALOG-AUDIT-001 — FAIL (initial harness run)
+
+| Field | Record |
+|---|---|
+| Feature | Repeated popup smoke harness |
+| Objective | Open, theme, close, and reopen representative app dialogs. |
+| Preconditions | ENV-1; live Tk MainPage; first harness version also included synchronous modal CategoryPicker. |
+| Test procedure | Initial runs of `python test-evidence/popup_smoke.py`. |
+| Expected result | Each constructed dialog remains queryable after being closed and all listed dialogs complete. |
+| Actual result | Initial harness queried a Toplevel after destroying it; a subsequent version blocked in CategoryPicker's `wait_window`; a later run passed the picker but had an incorrect CauseEditorDialog call signature. These were harness issues, not demonstrated application failures. |
+| Status | FAIL |
+| Evidence | Initial console failures were observed but the Tee log was overwritten by final reruns; exact initial output artifact is unavailable. |
+| Environment | ENV-1. |
+| Notes | Harness corrected to avoid querying destroyed windows, to omit the synchronous picker from this generic loop (picker interaction is in `gui_smoke.py`), and to use the actual cause-editor signature. Final run is recorded separately. |
+
+### DIALOG-AUDIT-001 — PASS (verified rerun)
+
+| Field | Record |
+|---|---|
+| Feature | Representative configuration dialog lifecycle and themes |
+| Objective | Open/reopen 12 configuration/popup types, check geometry/work area, and switch active dialogs Light/Dark. |
+| Preconditions | ENV-1; root on primary display; 12 live Tk popups/configurations. |
+| Test procedure | `$env:APPDATA='test-evidence\qa-appdata'; python test-evidence/popup_smoke.py`; open each dialog, measure actual size/window rect, toggle Light→Dark→Light, destroy, reopen in Light, and close. |
+| Expected result | Dialog exists, has usable dimensions, remains inside its parent monitor work area, responds to theme updates, and can be reopened without stale Tk errors. |
+| Actual result | All 12 passed: Histogram menu, Pareto config, Scatter menu, I-MR, Xbar-R, Xbar-S, p, np, c, U mode, converter, and Fishbone cause editor. Sizes ranged from `320x200` to `1100x650`; all rects were inside `(48,0)-(1536,864)`. |
+| Status | PASS |
+| Evidence | `popup_smoke.py`, `popup-smoke-output.txt`; previous `gui-smoke-output.txt` also covers category picker and Fishbone interactions. |
+| Environment | ENV-1; two monitors attached; this loop placed dialogs on monitor 1. |
+| Notes | This is representative lifecycle/theme coverage, not a control-by-control keyboard/focus audit for every dialog. Native message boxes and file choosers are separate. |
+
+### POPUP-INV-001 — PASS (code review)
+
+| Field | Record |
+|---|---|
+| Feature | Application popup inventory |
+| Objective | Identify reachable Toplevel classes and application-owned native file/message dialog calls. |
+| Preconditions | Current source on `main`; ENV-2. |
+| Test procedure | `rg -n 'class .*Popup|class .*Dialog|tk\.Toplevel|filedialog|messagebox' ui logic project_managers`. |
+| Expected result | Inventory surfaces the chart, converter, quality-tool, help, and project dialogs for test scoping. |
+| Actual result | Inventory written; chart config types are covered by DIALOG-AUDIT-001. Remaining classes include category text/add-record/preview/conversion, U-converted workflow, project confirmations, native message boxes, and export dialogs. |
+| Status | PASS |
+| Evidence | `popup-inventory.txt`; source list in `ui/ui.py`, `ui/quality_tools.py`, `logic/converter.py`, and `project_managers/project_manager.py`. |
+| Environment | ENV-2; code review only. |
+| Notes | This is a code inventory, not GUI verification. Exhaustive popup UX coverage remains NOT RUN below. |
+
+### DIALOG-AUDIT-002 — NOT RUN
+
+| Field | Record |
+|---|---|
+| Feature | Exhaustive popup and dialog interaction audit |
+| Objective | Exercise every reachable dialog's keyboard focus, Enter/Escape, validation, execution error, localization, clipping, and repeated lifecycle behavior. |
+| Preconditions | ENV-1 available. |
+| Test procedure | Not executed for every inventoried class. |
+| Expected result | Each dialog's intended controls and success/failure/cancel behaviors are individually observed and recorded. |
+| Actual result | Representative config dialog lifecycle passed; prior records cover I-MR validation/execution branches, Fishbone, Help, and category selection. Category text, Check Sheet add/edit record, conversion preview/converted U, project confirmation, all native messageboxes, and every language combination per dialog were not individually driven. |
+| Status | NOT RUN |
+| Evidence | N/A for exhaustive test; inventory is `popup-inventory.txt`. |
+| Environment | ENV-1 available. |
+| Notes | No claim of exhaustive dialog verification. This remains follow-up work. |
+
+### DPI-001 — PASS
+
+| Field | Record |
+|---|---|
+| Feature | Current multi-monitor resolution and work-area handling |
+| Objective | Check available monitor bounds, popup work-area clamp, and multiple window sizes. |
+| Preconditions | ENV-1; two displays. |
+| Test procedure | `python test-evidence/dpi_probe.py`; prior actual secondary-monitor dialog test `DIALOG-004`; chart resize tests at two window geometries. |
+| Expected result | Both displays are enumerated; dialogs stay within the parent monitor work area; supported window-size changes redraw content. |
+| Actual result | Monitor 1 bounds `1536x864`, monitor 2 `1360x768`; popup was previously clamped to monitor 2 work area; live chart canvases resized in smoke tests. |
+| Status | PASS |
+| Evidence | `dpi-probe-output.txt`, `gui-smoke-output.txt`, `chart-visual-output.txt`. |
+| Environment | ENV-1. |
+| Notes | Display resolutions differ. This pass does not imply non-100% scaling coverage. |
+
+### DPI-002 — BLOCKED
+
+| Field | Record |
+|---|---|
+| Feature | Non-100% Windows scaling |
+| Objective | Verify clipping and dialog/layout behavior at a non-default display scale. |
+| Preconditions | Windows GUI available; system setting left unchanged. |
+| Test procedure | Read system and per-monitor DPI with `python test-evidence/dpi_probe.py`. |
+| Expected result | Test at one or more monitor scales above/below 100%. |
+| Actual result | Both monitors and system report 96 DPI (100%); no non-100% monitor was available. System display settings were not changed. |
+| Status | BLOCKED |
+| Evidence | `dpi-probe-output.txt`: `system_dpi 96`, both monitors `dpi (96,96)`. |
+| Environment | Windows 10 build 26300, ENV-1. |
+| Notes | Scaling-specific behavior remains unverified. |
+
+### FILE-DIALOG-001 — BLOCKED
+
+| Field | Record |
+|---|---|
+| Feature | Native Windows file-open dialog |
+| Objective | Exercise cancel, valid Excel selection, and unsupported/invalid file handling through Import Excel. |
+| Preconditions | ENV-1; actual ProjectManager Import Excel workflow; no real user file was selected. |
+| Test procedure | `python test-evidence/native_dialog_probe.py`, which calls `app.ui.project_manager.import_excel()` and enumerates visible Windows dialogs in the process. |
+| Expected result | Native Open dialog appears and can be cancelled or supplied a valid/invalid fixture path; active input is preserved on cancel/failure. |
+| Actual result | Probe returned exit 0 but found only `SPC App`; no Open dialog was exposed to the available UI automation, so selection/cancel/error behavior was not observed. |
+| Status | BLOCKED |
+| Evidence | `native-dialog-probe.txt`; output `NO_COMMON_DIALOG` followed by visible-window inventory. |
+| Environment | ENV-1; GUI process ran, no UI Automation/pywinauto available. |
+| Notes | The probe did not establish whether Windows suppressed the dialog or whether it was inaccessible to this automation. No manual test was available in this run. Do not treat exit 0 as file dialog success. |
+
+### FILE-DIALOG-002 — BLOCKED
+
+| Field | Record |
+|---|---|
+| Feature | Native Windows file-save dialog |
+| Objective | Exercise cancellation, valid path, filename with spaces, and save outcome through an application export/save workflow. |
+| Preconditions | ENV-1; actual file chooser required. |
+| Test procedure | Attempt was not completed because the native Open chooser could not be surfaced to the available automation; no native Save chooser was driven. |
+| Expected result | Save path and spaced filename are accepted; cancel leaves current analysis/input unchanged. |
+| Actual result | Not observed. Existing export smoke tests patched the chooser to a deterministic path and therefore do not satisfy native dialog coverage. |
+| Status | BLOCKED |
+| Evidence | `native-dialog-probe.txt`; export smoke logs only evidence app export functions, not the native Save dialog. |
+| Environment | ENV-1; no UI Automation/pywinauto available. |
+| Notes | Manual or UIA-driven native Save dialog verification remains outstanding. |
+
+### CHART-VALIDATION-001 — NOT RUN
+
+| Field | Record |
+|---|---|
+| Feature | Per-chart empty/invalid/insufficient-data GUI validation |
+| Objective | Observe validation feedback and input preservation for all supported chart families. |
+| Preconditions | ENV-1; chart dialogs reachable. |
+| Test procedure | Not executed per family in this visual-render pass. Existing automated validation tests were included in REG-001, and I-MR validation/execution branches were driven in `gui_smoke.py`. |
+| Expected result | Each chart's empty, malformed, and insufficient data states report an appropriate error without crashing or discarding input. |
+| Actual result | Automated validation suite passes, but actual GUI behavior for all families was not individually observed. |
+| Status | NOT RUN |
+| Evidence | `REG-001-test-output.txt`, `gui-smoke-output.txt`; no per-chart validation GUI artifact. |
+| Environment | ENV-1 GUI available; no per-family interaction run. |
+| Notes | This gap remains despite successful visual rendering of nine chart families. |
+
+### REVIEW-002 — PASS
+
+| Field | Record |
+|---|---|
+| Feature | Diff and branch-safety review |
+| Objective | Verify only focused visual fixes were added and branch/commit safety rules remained respected. |
+| Preconditions | Existing uncommitted tree on `main`; no branch changes permitted. |
+| Test procedure | `git diff --check`; `git status --short --branch`; `git log -1 --oneline`; source review of the two chart changes. |
+| Expected result | Clean patch formatting; no commit/push/reset/branch switch; unrelated pre-existing work preserved. |
+| Actual result | Diff check passed; working tree remains on `main`; no commit, push, reset, or branch switch performed. Existing modifications remain. |
+| Status | PASS |
+| Evidence | Current Git status and diff output. |
+| Environment | ENV-2. |
+| Notes | This test does not imply the repository was clean before the task. |
 

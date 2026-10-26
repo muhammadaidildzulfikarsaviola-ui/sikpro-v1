@@ -1132,14 +1132,14 @@ class XbarRChartPopup(EmbeddedChartFrame):
                 result["r_lcl"],
                 linestyle="--",
                 color="red",
-                label=f'UCL = {round(result["r_ucl"], 4)}'
+                label=f'LCL = {round(result["r_lcl"], 4)}'
             )
 
             ax_s.axhline(
                 result["r_ucl"],
                 linestyle="--",
                 color="red",
-                label=f'LCL = {round(result["r_lcl"], 4)}'
+                label=f'UCL = {round(result["r_ucl"], 4)}'
             )
 
             for v in s_violations:

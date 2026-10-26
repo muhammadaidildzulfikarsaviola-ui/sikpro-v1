@@ -1,0 +1,4 @@
+Windows version sys.getwindowsversion(major=10, minor=0, build=26300, platform=2, service_pack='')
+system_dpi 96 monitor_count 2
+monitor 1 {'bounds': (0, 0, 1536, 864), 'work': (48, 0, 1536, 864), 'dpi_hr': 0, 'dpi': (96, 96)}
+monitor 2 {'bounds': (1920, 0, 3280, 768), 'work': (1968, 0, 3280, 768), 'dpi_hr': 0, 'dpi': (96, 96)}
