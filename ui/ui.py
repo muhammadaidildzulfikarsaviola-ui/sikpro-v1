@@ -25,6 +25,7 @@ from ui.quality_tools import FishboneView, CheckSheetView, DefectConcentrationVi
 from ui.help_view import HelpView
 from ui.nav_icons import add_nav_button
 from ui.dialogs import install_dialog_services
+from ui.control_chart_guide import ControlChartGuide
 
 
 class UI:
@@ -192,6 +193,9 @@ class UI:
         self.context_help = tk.Label(self.context_panel, text=self.main.t("context_data_help"), bg="#f8fafc", fg=text_color,
                  font=("Segoe UI", 9), justify="left", wraplength=230)
         self.context_help.pack(anchor="w", padx=14, pady=(0, 14))
+        self.context_tool_help_button = ttk.Button(
+            self.context_panel, text=self.main.t("quality_tool_help")
+        )
         tk.Frame(self.context_panel, height=1, bg=border).pack(fill="x", padx=14)
         tk.Label(self.context_panel, text=self.main.t("analysis_history"), bg="#f8fafc", fg=text_color,
                  font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14, pady=(12, 5))
@@ -236,6 +240,7 @@ class UI:
         self.chart_return_button.pack_forget()
         self.context_title.configure(text=self.main.t("input_guidance"))
         self.context_help.configure(text=self.main.t("context_data_help"))
+        self.context_tool_help_button.pack_forget()
         self.set_active_navigation("data_input")
 
     def prepare_chart_view(self):
@@ -251,6 +256,7 @@ class UI:
         self.chart_workspace.pack(fill="both", expand=True)
         self.context_title.configure(text=self.main.t("chart_context"))
         self.context_help.configure(text=self.main.t("chart_context_guidance"))
+        self.context_tool_help_button.pack_forget()
 
     def activate_chart_view(self, chart):
         self.active_chart_view = chart
@@ -291,20 +297,12 @@ class UI:
         self.refresh_project_label()
 
     def load_project(self):
-        previous_data = self.main.sheet.get_sheet_data()
-        previous_analyses = tuple(self.main.analysis_objects)
-        self.project_manager.load_project()
-        if (self.main.sheet.get_sheet_data() != previous_data
-                or tuple(self.main.analysis_objects) != previous_analyses):
+        if self.project_manager.load_project():
             self.select_data_input()
         self.refresh_project_label()
 
     def new_project(self):
-        previous_data = self.main.sheet.get_sheet_data()
-        previous_analyses = tuple(self.main.analysis_objects)
-        self.project_manager.new_project()
-        if (self.main.sheet.get_sheet_data() != previous_data
-                or tuple(self.main.analysis_objects) != previous_analyses):
+        if self.project_manager.new_project():
             self.select_data_input()
         self.refresh_project_label()
 
@@ -389,29 +387,7 @@ class UI:
         HelpView(self.main)
 
     def open_chart_menu(self):
-        menu = tk.Menu(self.main.root, tearoff=0)
-        variable = tk.Menu(menu, tearoff=0)
-        individual = tk.Menu(variable, tearoff=0)
-        individual.add_command(label=self.main.t("i_mr"), command=lambda: IMRConfigPopup(self.main, self.main.sheet))
-        for key in ("moving_range", "i_chart"):
-            individual.add_command(label=f'{self.main.t(key)} ({self.main.t("not_available")})', state="disabled")
-        variable.add_cascade(label=self.main.t("individual"), menu=individual)
-        subgroup = tk.Menu(variable, tearoff=0)
-        subgroup.add_command(label=self.main.t("xbar_r_chart"), command=lambda: XbarRConfigPopup(self.main, self.main.sheet))
-        subgroup.add_command(label=self.main.t("xbar_s_chart"), command=lambda: XbarSConfigPopup(self.main, self.main.sheet))
-        for key in ("r_bar_chart", "s_bar_chart"):
-            subgroup.add_command(label=f'{self.main.t(key)} ({self.main.t("not_available")})', state="disabled")
-        variable.add_cascade(label=self.main.t("subgroup"), menu=subgroup)
-        menu.add_cascade(label=self.main.t("variable"), menu=variable)
-        attribute = tk.Menu(menu, tearoff=0)
-        for key, command in (("p_chart", lambda: PChartConfigPopup(self.main, self.main.sheet)),
-            ("np_chart", lambda: NPChartConfigPopup(self.main, self.main.sheet)),
-            ("c_chart", lambda: CChartConfigPopup(self.main, self.main.sheet)),
-            ("u_chart", lambda: UChartModePopup(self.main, self.main.sheet))):
-            attribute.add_command(label=self.main.t(key), command=command)
-        menu.add_cascade(label=self.main.t("attribute"), menu=attribute)
-        menu.add_command(label=self.main.t("converter"), command=lambda: AttributeConverterPopup(self.main, self.main.sheet))
-        menu.tk_popup(self.main.root.winfo_pointerx(), self.main.root.winfo_pointery())
+        return ControlChartGuide(self.main, self.main.sheet)
 
     def build_help_dropdown(self,parent,data,level=0):
         
@@ -692,6 +668,7 @@ class UI:
             UChartPopup(
                 self.main, result, data.get("violations", []), column or "U-CHART",
                 settings.get("distribution", "Poisson"), save_to_history=False,
+                calculation_method_key=settings.get("calculation_method"),
             )
 
     def render(self):

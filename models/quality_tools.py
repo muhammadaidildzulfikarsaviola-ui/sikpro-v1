@@ -1,5 +1,6 @@
 """Small independent data models for the quality tools."""
 from dataclasses import dataclass
+import math
 from uuid import uuid4
 
 
@@ -28,6 +29,60 @@ class FishboneModel:
         self.categories = [{"id": uuid4().hex, "name": names[0 if language == "en" else 1], "default": True}
                            for names in self.DEFAULTS]
         self.causes = []
+
+    def to_dict(self):
+        return {
+            "effect": self.effect,
+            "categories": [dict(category) for category in self.categories],
+            "causes": [
+                {"id": cause.id, "category_id": cause.category_id, "text": cause.text}
+                for cause in self.causes
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data, language="en"):
+        if not isinstance(data, dict):
+            raise ValueError("Fishbone project data must be an object")
+        effect = data.get("effect", "")
+        categories = data.get("categories")
+        causes = data.get("causes")
+        if not isinstance(effect, str) or not isinstance(categories, list) or not isinstance(causes, list):
+            raise ValueError("Fishbone project data is incomplete")
+        category_ids = set()
+        parsed_categories = []
+        for category in categories:
+            if not isinstance(category, dict):
+                raise ValueError("Fishbone category must be an object")
+            category_id, name = category.get("id"), category.get("name")
+            if not isinstance(category_id, str) or not category_id or category_id in category_ids:
+                raise ValueError("Fishbone category IDs must be unique nonempty strings")
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Fishbone category names must be nonempty strings")
+            if not isinstance(category.get("default", False), bool):
+                raise ValueError("Fishbone category default flag must be a boolean")
+            if "renamed" in category and not isinstance(category["renamed"], bool):
+                raise ValueError("Fishbone category renamed flag must be a boolean")
+            category_ids.add(category_id)
+            parsed_categories.append(dict(category))
+        parsed_causes = []
+        cause_ids = set()
+        for cause in causes:
+            if not isinstance(cause, dict):
+                raise ValueError("Fishbone cause must be an object")
+            cause_id, category_id, text = cause.get("id"), cause.get("category_id"), cause.get("text")
+            if not isinstance(cause_id, str) or not cause_id or cause_id in cause_ids:
+                raise ValueError("Fishbone cause IDs must be unique nonempty strings")
+            if category_id not in category_ids or not isinstance(text, str) or not text.strip():
+                raise ValueError("Fishbone cause has invalid category or text")
+            cause_ids.add(cause_id)
+            parsed_causes.append(Cause(cause_id, category_id, text))
+        model = cls(language)
+        model.effect = effect
+        model.categories = parsed_categories
+        model.causes = parsed_causes
+        model.set_language(language)
+        return model
 
     def set_language(self, language):
         self.language = language
@@ -116,6 +171,56 @@ class CheckSheetModel:
     def __init__(self):
         self.categories = []
         self.records = []
+
+    def to_dict(self):
+        return {
+            "categories": [dict(category) for category in self.categories],
+            "records": [dict(record) for record in self.records],
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        if not isinstance(data, dict):
+            raise ValueError("Check Sheet project data must be an object")
+        categories, records = data.get("categories"), data.get("records")
+        if not isinstance(categories, list) or not isinstance(records, list):
+            raise ValueError("Check Sheet project data is incomplete")
+        model = cls()
+        category_ids = set()
+        for category in categories:
+            if not isinstance(category, dict):
+                raise ValueError("Check Sheet category must be an object")
+            category_id, name = category.get("id"), category.get("name")
+            if not isinstance(category_id, str) or not category_id or category_id in category_ids:
+                raise ValueError("Check Sheet category IDs must be unique nonempty strings")
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Check Sheet category names must be nonempty strings")
+            category_ids.add(category_id)
+            model.categories.append(dict(category))
+        record_ids = set()
+        for record in records:
+            if not isinstance(record, dict):
+                raise ValueError("Check Sheet record must be an object")
+            record_id, category_id = record.get("id"), record.get("category_id")
+            if not isinstance(record_id, str) or not record_id or record_id in record_ids:
+                raise ValueError("Check Sheet record IDs must be unique nonempty strings")
+            if category_id not in category_ids:
+                raise ValueError("Check Sheet record references an unknown category")
+            count = record.get("count")
+            if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+                raise ValueError("Check Sheet record count must be a nonnegative integer")
+            if any(not isinstance(record.get(key, ""), str) for key in ("date", "item", "notes")):
+                raise ValueError("Check Sheet record text fields must be strings")
+            record_ids.add(record_id)
+            model.records.append({
+                "id": record_id,
+                "category_id": category_id,
+                "count": count,
+                "date": record.get("date", ""),
+                "item": record.get("item", ""),
+                "notes": record.get("notes", ""),
+            })
+        return model
 
     def add_category(self, name):
         name = _required(name, "Category")
@@ -206,6 +311,67 @@ class DefectConcentrationModel:
                             "default": True}]
         self.marks = []
 
+    def to_dict(self):
+        return {
+            "default_category_id": self.default_category_id,
+            "categories": [dict(category) for category in self.categories],
+            "marks": [dict(mark) for mark in self.marks],
+        }
+
+    @classmethod
+    def from_dict(cls, data, language="en"):
+        if not isinstance(data, dict):
+            raise ValueError("Defect Concentration project data must be an object")
+        default_category_id = data.get("default_category_id")
+        categories, marks = data.get("categories"), data.get("marks")
+        if (not isinstance(default_category_id, str) or not default_category_id
+                or not isinstance(categories, list) or not isinstance(marks, list)):
+            raise ValueError("Defect Concentration project data is incomplete")
+        model = cls(language)
+        model.categories = []
+        category_ids = set()
+        for category in categories:
+            if not isinstance(category, dict):
+                raise ValueError("Defect Concentration category must be an object")
+            category_id, name = category.get("id"), category.get("name")
+            if not isinstance(category_id, str) or not category_id or category_id in category_ids:
+                raise ValueError("Defect Concentration category IDs must be unique nonempty strings")
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Defect Concentration category names must be nonempty strings")
+            if not isinstance(category.get("default", False), bool):
+                raise ValueError("Defect Concentration category default flag must be a boolean")
+            if "renamed" in category and not isinstance(category["renamed"], bool):
+                raise ValueError("Defect Concentration renamed flag must be a boolean")
+            category_ids.add(category_id)
+            model.categories.append(dict(category))
+        defaults = [category for category in model.categories if category.get("default")]
+        if (default_category_id not in category_ids or len(defaults) != 1
+                or defaults[0]["id"] != default_category_id):
+            raise ValueError("Defect Concentration default category is invalid")
+        model.default_category_id = default_category_id
+        model.language = language
+        model.set_language(language)
+        mark_ids = set()
+        for mark in marks:
+            if not isinstance(mark, dict):
+                raise ValueError("Defect Concentration mark must be an object")
+            mark_id, category_id = mark.get("id"), mark.get("category_id")
+            x, y, note = mark.get("x"), mark.get("y"), mark.get("note", "")
+            if not isinstance(mark_id, str) or not mark_id or mark_id in mark_ids:
+                raise ValueError("Defect Concentration mark IDs must be unique nonempty strings")
+            if category_id not in category_ids:
+                raise ValueError("Defect Concentration mark references an unknown category")
+            if (isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, (int, float))
+                    or not isinstance(y, (int, float)) or not math.isfinite(x) or not math.isfinite(y)
+                    or not 0 <= x <= 1 or not 0 <= y <= 1):
+                raise ValueError("Defect Concentration mark coordinates must be finite values from 0 to 1")
+            if not isinstance(note, str):
+                raise ValueError("Defect Concentration mark note must be a string")
+            mark_ids.add(mark_id)
+            model.marks.append({"id": mark_id, "category_id": category_id,
+                                "x": float(x), "y": float(y), "note": note})
+        return model
+
     def set_language(self, language):
         self.language = language
         default = next((c for c in self.categories if c["id"] == self.default_category_id), None)
@@ -284,3 +450,12 @@ class DefectConcentrationModel:
             if item["id"] == key:
                 return item
         raise ValueError("Unknown mark")
+
+
+def default_tool_models(language="en"):
+    """Create fresh editable models for a new application project."""
+    return {
+        "fishbone": FishboneModel(language),
+        "check_sheet": CheckSheetModel(),
+        "defect_concentration": DefectConcentrationModel(language),
+    }

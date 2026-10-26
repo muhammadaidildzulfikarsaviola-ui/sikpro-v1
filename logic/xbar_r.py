@@ -477,6 +477,13 @@ class XbarRConfigPopup(tk.Toplevel):
 
         ttk.Label(
             config_frame,
+            text=self.main.t("chart_subgroup_guidance"),
+            wraplength=280,
+            justify="left"
+        ).pack(anchor="w", pady=(0, 8))
+
+        ttk.Label(
+            config_frame,
             text="Subgroup Mode"
         ).pack(anchor="w")
 
@@ -765,8 +772,8 @@ class XbarRConfigPopup(tk.Toplevel):
                     result["ranges"],
                     result["r_bar"],
                     result["r_ucl"],
-                    result["r_ucl"],
-                language=self.main.current_lang
+                    result["r_lcl"],
+                    language=self.main.current_lang
                 )
 
                 results.append({

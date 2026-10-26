@@ -450,7 +450,8 @@ class UChartPopup(EmbeddedChartFrame):
         violations=None,
         column_name="U-CHART",
         distribution="Poisson",
-        save_to_history=True
+        save_to_history=True,
+        calculation_method_key=None
     ):
 
         super().__init__(main.root)
@@ -493,6 +494,8 @@ class UChartPopup(EmbeddedChartFrame):
 
         self.distribution = distribution
 
+        self.calculation_method_key = calculation_method_key
+
         self.save_to_history = save_to_history
 
         self.title("U Chart")
@@ -522,7 +525,8 @@ class UChartPopup(EmbeddedChartFrame):
             },
             settings={
                 "column": self.column_name,
-                "distribution": self.distribution
+                "distribution": self.distribution,
+                "calculation_method": self.calculation_method_key,
             }
         )
 
@@ -690,10 +694,11 @@ class UChartPopup(EmbeddedChartFrame):
             expand=True
         )
 
-        text.insert(
-            "end",
-            f'Distribution : {self.distribution}\n'
-        )
+        if self.calculation_method_key == "converted_sample_sd":
+            method = self.main.t("converted_u_limit_method")
+            text.insert("end", f'{self.main.t("limit_method")} : {method}\n')
+        else:
+            text.insert("end", f'{self.main.t("distribution")} : {self.distribution}\n')
         text.insert(
             "end",
             f'Data Source : {self.column_name}\n\n'
@@ -858,36 +863,12 @@ class UChartConvertedPopup(tk.Toplevel):
             pady=(10, 15)
         )
 
-        # =====================================
-        # DISTRIBUTION
-        # =====================================
-
         ttk.Label(
             container,
-            text="Distribution"
-        ).pack(
-            anchor="w"
-        )
-
-        self.distribution_var = tk.StringVar(
-            value="Poisson"
-        )
-
-        distribution_combo = ttk.Combobox(
-            container,
-            textvariable=self.distribution_var,
-            state="readonly",
-            values=[
-                "Poisson",
-                "Normal",
-                "Binomial"
-            ]
-        )
-
-        distribution_combo.pack(
-            fill="x",
-            pady=(5, 20)
-        )
+            text=self.main.t("converted_u_limit_method"),
+            wraplength=450,
+            justify="left"
+        ).pack(anchor="w", pady=(0, 16))
 
         # =====================================
         # GENERATE
@@ -942,8 +923,6 @@ class UChartConvertedPopup(tk.Toplevel):
         if len(u_values) < 2:
             raise ValueError("At least two valid converted observations are required")
 
-        distribution = self.distribution_var.get()
-
         # =====================================
         # SIMPLIFIED U CHART
         # =====================================
@@ -981,7 +960,7 @@ class UChartConvertedPopup(tk.Toplevel):
                 for _ in u_values
             ],
 
-            "distribution": distribution
+            "calculation_method": "converted_sample_sd"
         }
 
         violations = check_nelson_rules(
@@ -997,5 +976,6 @@ class UChartConvertedPopup(tk.Toplevel):
             result,
             violations,
             self.converted_column,
-            distribution
+            distribution=None,
+            calculation_method_key="converted_sample_sd"
         ))

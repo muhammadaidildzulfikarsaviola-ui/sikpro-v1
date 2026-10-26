@@ -10,6 +10,7 @@ from matplotlib.patches import Ellipse, FancyBboxPatch
 
 from logic.chart_canvas import FigureCanvasTkAgg
 from models.quality_tools import FishboneModel, CheckSheetModel, DefectConcentrationModel
+from help.quality_tool_help import QUALITY_TOOL_HELP
 
 
 class ToolView(tk.Frame):
@@ -26,6 +27,12 @@ class ToolView(tk.Frame):
         self.host.context_title.configure(text=main.t(title_key))
         self.host.context_help.configure(text=main.t(guidance_key))
         self.host.set_active_navigation(key)
+        if key in QUALITY_TOOL_HELP["en"]:
+            self.host.context_tool_help_button.configure(
+                text=main.t("quality_tool_help"),
+                command=self.open_help,
+            )
+            self.host.context_tool_help_button.pack(anchor="w", padx=14, pady=(0, 12))
 
     def title(self, value=None):
         if value is not None:
@@ -35,6 +42,18 @@ class ToolView(tk.Frame):
 
     def close_all(self):
         self.destroy()
+
+    def open_help(self):
+        if getattr(self, "_help_dialog", None) is not None:
+            try:
+                if self._help_dialog.winfo_exists():
+                    self._help_dialog.lift()
+                    self._help_dialog.focus_force()
+                    return self._help_dialog
+            except tk.TclError:
+                pass
+        self._help_dialog = QualityToolHelpDialog(self.main, self.tool_key)
+        return self._help_dialog
 
     def _error(self, exc):
         text = str(exc)
@@ -56,6 +75,72 @@ class ToolView(tk.Frame):
             "Defect position must be inside the inspection area": "location_inside_object",
         }.get(text)
         messagebox.showerror(self.main.t("error"), self.main.t(key) if key else text, parent=self.main.root)
+
+
+class QualityToolHelpDialog(tk.Toplevel):
+    """Nonmodal, localized instructions that leave the active tool untouched."""
+    def __init__(self, main, tool_key):
+        super().__init__(main.root)
+        self.main = main
+        self.tool_key = tool_key
+        self.title(f'{main.t(tool_key)} — {main.t("quality_tool_help")}')
+        self.transient(main.root)
+        self.resizable(True, True)
+        self.minsize(480, 360)
+        self.geometry("640x520")
+        palette = main.theme_manager.palette
+        self.configure(background=palette["surface"])
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        ttk.Label(self, text=main.t(tool_key), font=("Segoe UI", 14, "bold")).grid(
+            row=0, column=0, sticky="w", padx=18, pady=(16, 8)
+        )
+        text_frame = ttk.Frame(self)
+        text_frame.grid(row=1, column=0, sticky="nsew", padx=18)
+        text_frame.rowconfigure(0, weight=1)
+        text_frame.columnconfigure(0, weight=1)
+        self.content = tk.Text(
+            text_frame, wrap="word", relief="flat", bd=0, padx=12, pady=10,
+            bg=palette["input"], fg=palette["text"], insertbackground=palette["text"],
+            font=("Segoe UI", 10), spacing1=2, spacing3=5, state="disabled",
+        )
+        scroll = ttk.Scrollbar(text_frame, orient="vertical", command=self.content.yview)
+        self.content.configure(yscrollcommand=scroll.set)
+        self.content.grid(row=0, column=0, sticky="nsew")
+        scroll.grid(row=0, column=1, sticky="ns")
+        self.content.tag_configure("heading", foreground=palette["accent"],
+                                   font=("Segoe UI", 10, "bold"), spacing1=8, spacing3=4)
+        self.content.tag_configure("body", foreground=palette["text"], lmargin1=4, lmargin2=4)
+        self._render()
+
+        actions = ttk.Frame(self)
+        actions.grid(row=2, column=0, sticky="e", padx=18, pady=14)
+        self.close_button = ttk.Button(actions, text=main.t("quality_help_close"), command=self.destroy)
+        self.close_button.pack()
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+    def _render(self):
+        language = self.main.current_lang if self.main.current_lang in QUALITY_TOOL_HELP else "en"
+        content = QUALITY_TOOL_HELP[language][self.tool_key]
+        self.content.configure(state="normal")
+        self.content.insert("end", f'{self.main.t("quality_help_purpose")}\n', "heading")
+        self.content.insert("end", content["purpose"] + "\n\n", "body")
+        self.content.insert("end", f'{self.main.t("quality_help_steps")}\n', "heading")
+        for index, step in enumerate(content["steps"], start=1):
+            self.content.insert("end", f"{index}. {step}\n", "body")
+        self.content.insert("end", f'\n{self.main.t("quality_help_next")}\n', "heading")
+        self.content.insert("end", content["next"] + "\n", "body")
+        self.content.configure(state="disabled")
+
+    def set_theme(self, palette):
+        self.configure(background=palette["surface"])
+        self.content.configure(
+            background=palette["input"], foreground=palette["text"],
+            insertbackground=palette["text"],
+        )
+        self.content.tag_configure("heading", foreground=palette["accent"])
+        self.content.tag_configure("body", foreground=palette["text"])
 
 
 class FishboneView(ToolView):

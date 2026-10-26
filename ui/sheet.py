@@ -8,6 +8,7 @@ class Sheet:
         self.main = main
 
         self.sheet = None
+        self._column_headers = None
 
     def build(self, parent):
 
@@ -83,18 +84,19 @@ class Sheet:
     def update_headers(self):
 
         total_cols = self.sheet.total_columns()
-
-        headers = [
-            f"C{i+1}"
-            for i in range(total_cols)
-        ]
-
-        self.sheet.headers(newheaders=headers)
+        if self._column_headers is None or len(self._column_headers) != total_cols:
+            self._column_headers = [f"C{i+1}" for i in range(total_cols)]
+        self.sheet.headers(newheaders=self._column_headers)
 
         self.sheet.refresh()
 
     def _column_changed(self, event=None):
-
+        total_cols = self.sheet.total_columns()
+        current = self.sheet.headers()
+        if isinstance(current, (list, tuple)) and len(current) == total_cols:
+            self._column_headers = [str(value) for value in current]
+        else:
+            self._column_headers = [f"C{i+1}" for i in range(total_cols)]
         self.update_headers()
 
     def get_sheet_data(self):
@@ -104,17 +106,25 @@ class Sheet:
     def set_sheet_data(self, data):
 
         self.sheet.set_sheet_data(data)
+        self._column_headers = None
 
+        self.update_headers()
+
+    def set_sheet_data_with_headers(self, data, headers):
+        """Replace worksheet contents while preserving imported/project labels."""
+        self.sheet.set_sheet_data(data)
+        total_cols = self.sheet.total_columns()
+        normalized = [str(value).strip() for value in headers[:total_cols]]
+        normalized.extend(f"C{i+1}" for i in range(len(normalized), total_cols))
+        self._column_headers = normalized
         self.update_headers()
 
     def get_column_names(self):
 
         total_cols = self.sheet.total_columns()
-
-        return [
-            f"C{i+1}"
-            for i in range(total_cols)
-        ]
+        if self._column_headers is None or len(self._column_headers) != total_cols:
+            self._column_headers = [f"C{i+1}" for i in range(total_cols)]
+        return list(self._column_headers)
 
     def clear(self):
 
@@ -130,6 +140,7 @@ class Sheet:
         ]
 
         self.sheet.set_sheet_data(empty_data)
+        self._column_headers = None
 
         self.update_headers()
 

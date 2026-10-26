@@ -227,6 +227,13 @@ class PChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             config,
+            text=self.main.t("chart_attribute_guidance"),
+            wraplength=300,
+            justify="left"
+        ).pack(anchor="w", pady=(0, 8))
+
+        ttk.Label(
+            config,
             text="Subgroup Size"
         ).pack(anchor="w")
 

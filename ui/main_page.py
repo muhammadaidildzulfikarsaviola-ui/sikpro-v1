@@ -4,6 +4,7 @@ from ui.ui import UI
 from core.lang import LANG
 from ui.sheet import Sheet
 from ui.theme import ThemeManager
+from models.quality_tools import default_tool_models
 
 class MainPage:
     def __init__(self, root):
@@ -18,7 +19,7 @@ class MainPage:
 
         self.sheet = Sheet(self)
         self.analysis_objects=[]
-        self.tool_models = {}
+        self.tool_models = default_tool_models(self.current_lang)
 
         self.ui = UI(self)
         self.ui.build()
@@ -41,6 +42,7 @@ class MainPage:
                     selected_chart_index = selected[0]
         
         sheet_data = self.sheet.get_sheet_data()
+        sheet_headers = self.sheet.get_column_names()
 
         analysis_data = self.analysis_objects
 
@@ -61,8 +63,7 @@ class MainPage:
 
         self.ui.build()
 
-        self.sheet.set_sheet_data(sheet_data)
-        self.sheet.update_headers()
+        self.sheet.set_sheet_data_with_headers(sheet_data, sheet_headers)
 
         self.analysis_objects = analysis_data
 

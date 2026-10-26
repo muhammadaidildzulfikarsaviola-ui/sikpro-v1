@@ -443,6 +443,13 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Label(
             config_frame,
+            text=self.main.t("chart_subgroup_guidance"),
+            wraplength=280,
+            justify="left"
+        ).pack(anchor="w", pady=(0, 8))
+
+        ttk.Label(
+            config_frame,
             text="Subgroup Mode"
         ).pack(anchor="w")
 
