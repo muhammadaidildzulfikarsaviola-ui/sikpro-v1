@@ -1,10 +1,13 @@
+from logic.validation import handle_validation_errors
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from logic.chart_canvas import FigureCanvasTkAgg
+from ui.chart_view import EmbeddedChartFrame
+from ui.dialogs import deliver_result
 
 from scipy.stats import linregress
 
@@ -243,7 +246,7 @@ class ScatterConfigPopup(tk.Toplevel):
 
             messagebox.showerror(
                 self.main.t("error"),
-                self.main.t("pelase_select_column")
+                self.main.t("please_select_column")
             )
 
             return
@@ -262,7 +265,7 @@ class ScatterConfigPopup(tk.Toplevel):
 
             messagebox.showerror(
                 self.main.t("error"),
-                self.main.t("pelase_select_column")
+                self.main.t("please_select_column")
             )
 
             return
@@ -285,6 +288,7 @@ class ScatterConfigPopup(tk.Toplevel):
                 ", ".join(self.y_vars)
             )
 
+    @handle_validation_errors
     def generate(self):
 
         x_col = self.x_var.get().strip()
@@ -295,21 +299,15 @@ class ScatterConfigPopup(tk.Toplevel):
 
             messagebox.showerror(
                 self.main.t("error"),
-                self.main.t("x_y_reuired")            )
+                self.main.t("x_y_required")            )
 
             return
 
-        ScatterChartPopup(
-            self.main,
-            self,
-            self.sheet,
-            self.mode,
-            x_col,
-            y_cols,
-            group_col
-        )
+        deliver_result(self, lambda: ScatterChartPopup(
+            self.main, self, self.sheet, self.mode, x_col, y_cols, group_col
+        ), self.menu_popup)
 
-class ScatterChartPopup(tk.Toplevel):
+class ScatterChartPopup(EmbeddedChartFrame):
 
     def __init__(
         self,
@@ -335,6 +333,7 @@ class ScatterChartPopup(tk.Toplevel):
         self.x_col = x_col
         self.y_cols = y_cols
         self.group_col = group_col
+        self.saved_data = analysis.data if analysis and isinstance(analysis.data, dict) else None
 
         self.title("Scatterplot")
 
@@ -405,7 +404,7 @@ class ScatterChartPopup(tk.Toplevel):
                 f'{self.x_col} vs '
                 f'{", ".join(self.y_cols)}'
             ),
-            data=[],
+            data=self.plot_data,
             stats={},
             settings={
                 "mode": self.mode,
@@ -421,9 +420,30 @@ class ScatterChartPopup(tk.Toplevel):
 
     def create_chart(self):
         
-        x = self.get_numeric_data(
-            self.x_col
-        )
+        if self.saved_data and "x_values" in self.saved_data:
+            x = np.asarray(self.saved_data["x_values"], dtype=float)
+            saved_y = self.saved_data.get("y_values", {})
+            saved_groups = self.saved_data.get("group_values")
+        else:
+            x = self.get_numeric_data(self.x_col)
+            saved_y = {}
+            saved_groups = None
+
+        source_y = {}
+        for y_col in self.y_cols:
+            source_y[y_col] = (
+                np.asarray(saved_y[y_col], dtype=float)
+                if y_col in saved_y
+                else self.get_numeric_data(y_col)
+            )
+        group_values = saved_groups
+        if group_values is None and self.group_col:
+            group_values = self.sheet.get_column_data(self.get_column_index(self.group_col))
+        self.plot_data = {
+            "x_values": x.tolist(),
+            "y_values": {name: values.tolist() for name, values in source_y.items()},
+            "group_values": list(group_values) if group_values is not None else None,
+        }
 
         fig, ax = plt.subplots(
             figsize=(12, 7)
@@ -440,9 +460,7 @@ class ScatterChartPopup(tk.Toplevel):
 
         for y_index, y_col in enumerate(self.y_cols):
 
-            y = self.get_numeric_data(
-                y_col
-            )
+            y = source_y[y_col]
 
             mask = ~np.isnan(x) & ~np.isnan(y)
 
@@ -522,20 +540,14 @@ class ScatterChartPopup(tk.Toplevel):
 
                     messagebox.showerror(
                         self.main.t("error"),
-                        self.main.t("group_variable_reuired")
+                        self.main.t("group_variable_required")
                     )
 
                     self.destroy()
 
                     return
 
-                group_idx = self.get_column_index(
-                    self.group_col
-                )
-
-                groups = self.sheet.get_column_data(
-                    group_idx
-                )
+                groups = group_values
 
                 groups = np.array(groups)[mask]
 
@@ -641,7 +653,7 @@ class ScatterChartPopup(tk.Toplevel):
             master=self
         )
 
-        canvas.draw()
+        canvas.draw_idle()
 
         canvas.get_tk_widget().pack(
             fill="both",

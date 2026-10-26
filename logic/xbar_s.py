@@ -1,3 +1,5 @@
+from logic.validation import handle_validation_errors, numeric_values, numeric_subgroups
+from logic.nelson_rules import check_nelson_rules as _shared_nelson_rules, rule_details, localize_chart_results
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -6,77 +8,13 @@ import matplotlib.pyplot as plt
 
 from collections import Counter
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from logic.chart_canvas import FigureCanvasTkAgg, marker_stride
+from ui.chart_view import EmbeddedChartFrame, favor_chart_panel
+from ui.dialogs import deliver_result
 
 from models.analysis import Analysis
 from PIL import Image, ImageTk
 from resources import resource_path
-rule_info = {
-
-    "Rule 1": {
-        "name": "Point Beyond Control Limits",
-        "interpretation":
-        "Terdapat satu atau lebih titik data yang berada di luar batas kendali (UCL/LCL), mengindikasikan adanya special cause variation dalam proses.",
-        "recommendation":
-        "Lakukan investigasi terhadap kondisi proses pada titik tersebut, termasuk faktor mesin, material, metode, dan operator."
-    },
-
-    "Rule 2": {
-        "name": "Shift (Process Shift)",
-        "interpretation":
-        "Terjadi pergeseran rata-rata proses yang ditandai dengan beberapa titik berturut-turut berada di satu sisi garis tengah.",
-        "recommendation":
-        "Evaluasi kemungkinan perubahan sistematis seperti penyesuaian mesin, pergantian operator, atau perubahan bahan baku."
-    },
-
-    "Rule 3": {
-        "name": "Trend (Systematic Trend)",
-        "interpretation":
-        "Terdapat kecenderungan peningkatan atau penurunan secara bertahap yang menunjukkan adanya perubahan sistematis dalam proses.",
-        "recommendation":
-        "Identifikasi potensi drift pada mesin, keausan alat, atau faktor lingkungan yang berubah secara gradual."
-    },
-
-    "Rule 4": {
-        "name": "Oscillation (Alternating Pattern)",
-        "interpretation":
-        "Pola data menunjukkan fluktuasi naik-turun secara bergantian, mengindikasikan adanya variasi yang tidak acak.",
-        "recommendation":
-        "Periksa kemungkinan over-adjustment (tampering) atau inkonsistensi dalam pengendalian proses."
-    },
-
-    "Rule 5": {
-        "name": "Zone A Violation",
-        "interpretation":
-        "Beberapa titik berada pada zona A (mendekati batas kendali), menunjukkan adanya indikasi awal ketidakstabilan proses.",
-        "recommendation":
-        "Lakukan monitoring lebih intensif dan identifikasi faktor penyebab sebelum terjadi out of control."
-    },
-
-    "Rule 6": {
-        "name": "Zone B Pattern",
-        "interpretation":
-        "Pola titik menunjukkan kecenderungan berada di zona B, mengindikasikan potensi bias sistematis dalam proses.",
-        "recommendation":
-        "Evaluasi konsistensi proses dan kondisi operasional yang mungkin menyebabkan deviasi berulang."
-    },
-
-    "Rule 7": {
-        "name": "Stratification (Overcontrol)",
-        "interpretation":
-        "Variasi proses terlalu kecil dan seluruh titik berada dekat garis tengah, mengindikasikan kemungkinan overcontrol atau kurangnya variasi alami.",
-        "recommendation":
-        "Tinjau metode pengendalian proses dan pastikan tidak terjadi manipulasi data atau penyesuaian berlebihan."
-    },
-
-    "Rule 8": {
-        "name": "Mixture (High Variation)",
-        "interpretation":
-        "Data menunjukkan penyebaran yang luas dengan pola tidak beraturan, mengindikasikan adanya variasi tinggi dari berbagai sumber.",
-        "recommendation":
-        "Identifikasi dan pisahkan sumber variasi yang berbeda, seperti perbedaan mesin, operator, atau batch produksi."
-    }
-}
 rule_images = {
     1: resource_path("rules/rules1.png"),
     2: resource_path("rules/rules2.png"),
@@ -126,281 +64,89 @@ B4_CONSTANTS = {
 
 
 def clean_numeric(data):
-
-    cleaned = []
-
-    for x in data:
-
-        try:
-            cleaned.append(float(x))
-
-        except:
-            pass
-
-    return cleaned
+    return numeric_values(data)
 
 
 def build_vertical_subgroups(sheet, columns):
+    columns = list(columns)
+    if not columns:
+        raise ValueError("Select at least one column for vertical subgroups")
+    rows = sheet.get_sheet_data()
+    selected = []
+    for row_index, row in enumerate(rows):
+        cells = [row[column] if column < len(row) else "" for column in columns]
+        if any(value is not None and str(value).strip() != "" for value in cells):
+            selected.append((row_index + 1, cells))
+    if not selected:
+        raise ValueError("No subgroup data was entered")
 
-    subgroup_data = []
-
-    min_len = min([
-        len(clean_numeric(sheet.get_column_data(c)))
-        for c in columns
-    ])
-
-    for row in range(min_len):
-
-        subgroup = []
-
-        for col in columns:
-
-            data = clean_numeric(
-                sheet.get_column_data(col)
+    groups = []
+    for row_number, cells in selected:
+        present = [value is not None and str(value).strip() != "" for value in cells]
+        if not any(present):
+            continue
+        if not all(present):
+            missing_column = columns[present.index(False)]
+            raise ValueError(
+                f"Incomplete subgroup at row {row_number}, column C{missing_column + 1}"
             )
-
-            subgroup.append(data[row])
-
-        subgroup_data.append(subgroup)
-
-    return subgroup_data
+        group = []
+        for column, value in zip(columns, cells):
+            group.append(numeric_values([value], f"row {row_number}, column C{column + 1}")[0])
+        groups.append(group)
+    if not groups:
+        raise ValueError("No complete subgroup data was entered")
+    return groups
 
 
 def build_horizontal_subgroups(data, subgroup_size):
-
-    subgroup_data = []
-
-    for i in range(0, len(data), subgroup_size):
-
-        subgroup = data[i:i + subgroup_size]
-
-        if len(subgroup) == subgroup_size:
-
-            subgroup_data.append(subgroup)
-
-    return subgroup_data
+    values = numeric_values(data, "horizontal subgroup data")
+    if isinstance(subgroup_size, bool) or not isinstance(subgroup_size, int):
+        raise ValueError("Subgroup size must be an integer")
+    if not 2 <= subgroup_size <= 10:
+        raise ValueError("Subgroup size must be between 2 and 10")
+    if not values:
+        raise ValueError("At least one observation is required")
+    if len(values) % subgroup_size:
+        raise ValueError(
+            f"Incomplete final subgroup: {len(values)} observations is not divisible by {subgroup_size}"
+        )
+    return [values[i:i + subgroup_size] for i in range(0, len(values), subgroup_size)]
 
 
 def calculate_xbar_s(subgroups):
-
+    subgroups = numeric_subgroups(subgroups, "subgroups", min_size=2, max_size=10)
     subgroup_size = len(subgroups[0])
-
-    if subgroup_size not in A3_CONSTANTS:
-
-        raise ValueError(
-            "Subgroup size must be between 2 and 10"
-        )
-
-    xbars = [
-        np.mean(g)
-        for g in subgroups
-    ]
-
-    stds = [
-        np.std(g, ddof=1)
-        for g in subgroups
-    ]
-
-    xbar_bar = np.mean(xbars)
-
-    s_bar = np.mean(stds)
-
+    xbars = [np.mean(group) for group in subgroups]
+    stds = [np.std(group, ddof=1) for group in subgroups]
+    xbar_bar = float(np.mean(xbars))
+    s_bar = float(np.mean(stds))
     A3 = A3_CONSTANTS[subgroup_size]
     B3 = B3_CONSTANTS[subgroup_size]
     B4 = B4_CONSTANTS[subgroup_size]
-
-    xbar_ucl = xbar_bar + (A3 * s_bar)
-    xbar_lcl = xbar_bar - (A3 * s_bar)
-
-    s_ucl = B4 * s_bar
-    s_lcl = B3 * s_bar
-
     return {
-
-        "xbars": xbars,
-        "stds": stds,
-
-        "xbar_bar": xbar_bar,
-        "s_bar": s_bar,
-
-        "xbar_ucl": xbar_ucl,
-        "xbar_lcl": xbar_lcl,
-
-        "s_ucl": s_ucl,
-        "s_lcl": s_lcl,
-
-        "subgroup_size": subgroup_size
+        "xbars": xbars, "stds": stds,
+        "xbar_bar": xbar_bar, "s_bar": s_bar,
+        "xbar_ucl": xbar_bar + A3 * s_bar,
+        "xbar_lcl": xbar_bar - A3 * s_bar,
+        "s_ucl": B4 * s_bar, "s_lcl": B3 * s_bar,
+        "subgroup_size": subgroup_size,
     }
 
 
-def get_rule_explanation(rule_no):
-
-    explanations = {
-
-        "Rule 1": (
-            "Titik melewati batas kendali",
-            "Kemungkinan special cause variation, setting mesin berubah, alat ukur bermasalah, atau operator error"
-        ),
-
-        "Rule 2": (
-            "9 titik berturut pada satu sisi mean",
-            "Menunjukkan process shift atau perubahan rata-rata proses"
-        ),
-
-        "Rule 3": (
-            "Trend naik atau turun terus menerus",
-            "Kemungkinan tool wear, overheating, atau drift proses"
-        ),
-
-        "Rule 5": (
-            "2 dari 3 titik berada di zona A",
-            "Variasi proses mulai membesar dan mendekati kondisi out of control"
-        ),
-
-        "Rule 6": (
-            "4 dari 5 titik berada di zona B",
-            "Proses menunjukkan pola abnormal dan ketidakstabilan"
-        )
-    }
-
-    return explanations.get(
-        rule_no,
-        ("Unknown", "No explanation")
-    )
+def get_rule_explanation(rule_no, language="id"):
+    details = rule_details(rule_no, language)
+    return details["description"], details["interpretation"]
 
 
-def check_nelson_rules(data, mean, ucl, lcl):
-
+def check_nelson_rules(data, mean, ucl, lcl, language="id"):
+    raw_violations = _shared_nelson_rules(data, mean, ucl, lcl, language=language)
     violations = []
-
-    sigma = (ucl - mean) / 3
-
-    zone_a = 2 * sigma
-    zone_b = sigma
-
-    for i, val in enumerate(data):
-
-        if val > ucl or val < lcl:
-
-            desc, cause = get_rule_explanation("Rule 1")
-
-            violations.append({
-
-                "rule": "Rule 1",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    count = 0
-    side = None
-
-    for i, val in enumerate(data):
-
-        current = val > mean
-
-        if current == side:
-
-            count += 1
-
-        else:
-
-            count = 1
-            side = current
-
-        if count >= 9:
-
-            desc, cause = get_rule_explanation("Rule 2")
-
-            violations.append({
-
-                "rule": "Rule 2",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    up = 0
-    down = 0
-
-    for i in range(1, len(data)):
-
-        if data[i] > data[i - 1]:
-
-            up += 1
-            down = 0
-
-        elif data[i] < data[i - 1]:
-
-            down += 1
-            up = 0
-
-        if up >= 5:
-
-            desc, cause = get_rule_explanation("Rule 3")
-
-            violations.append({
-
-                "rule": "Rule 3",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-        if down >= 5:
-
-            desc, cause = get_rule_explanation("Rule 3")
-
-            violations.append({
-
-                "rule": "Rule 3",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    for i in range(len(data) - 2):
-
-        subset = data[i:i + 3]
-
-        count = sum(
-            abs(x - mean) > zone_a
-            for x in subset
-        )
-
-        if count >= 2:
-
-            desc, cause = get_rule_explanation("Rule 5")
-
-            violations.append({
-
-                "rule": "Rule 5",
-                "point": i + 3,
-                "description": desc,
-                "cause": cause
-            })
-
-    for i in range(len(data) - 4):
-
-        subset = data[i:i + 5]
-
-        count = sum(
-            abs(x - mean) > zone_b
-            for x in subset
-        )
-
-        if count >= 4:
-
-            desc, cause = get_rule_explanation("Rule 6")
-
-            violations.append({
-
-                "rule": "Rule 6",
-                "point": i + 5,
-                "description": desc,
-                "cause": cause
-            })
-
+    for rule, point, description in raw_violations:
+        details = rule_details(rule, language)
+        violations.append({"rule": rule, "point": point,
+                           "description": description,
+                           "cause": details["interpretation"]})
     return violations
 
 
@@ -495,6 +241,12 @@ def generate_recommendation(
             "- Check gradual tool wear or temperature drift"
         )
 
+    if "Rule 4" in all_rules:
+
+        recommendations.append(
+            "- Investigate alternating sources or repeated process adjustments"
+        )
+
     if "Rule 5" in all_rules:
 
         recommendations.append(
@@ -505,6 +257,18 @@ def generate_recommendation(
 
         recommendations.append(
             "- Review raw material consistency and setup"
+        )
+
+    if "Rule 7" in all_rules:
+
+        recommendations.append(
+            "- Review measurement resolution and possible over-control"
+        )
+
+    if "Rule 8" in all_rules:
+
+        recommendations.append(
+            "- Investigate mixed machines, operators, or production batches"
         )
 
     if len(recommendations) == 0:
@@ -748,11 +512,9 @@ class XbarSConfigPopup(tk.Toplevel):
 
         for i, col in enumerate(columns):
 
-            data = clean_numeric(
-                self.sheet.get_column_data(i)
-            )
+            data = self.sheet.get_column_data(i)
 
-            if len(data) == 0:
+            if not any(value is not None and str(value).strip() for value in data):
                 continue
 
             self.numeric_columns[col] = i
@@ -838,13 +600,14 @@ class XbarSConfigPopup(tk.Toplevel):
                 col
             )
 
+    @handle_validation_errors
     def generate(self):
 
         if len(self.selected_columns) == 0:
 
             messagebox.showerror(
-                "Error",
-                "Select at least one column"
+                self.main.t("error"),
+                self.main.t("select_at_least_one_column")
             )
 
             return
@@ -866,8 +629,8 @@ class XbarSConfigPopup(tk.Toplevel):
                 except:
 
                     messagebox.showerror(
-                        "Error",
-                        "Subgroup size must be integer"
+                        self.main.t("error"),
+                        self.main.t("subgroup_size_integer")
                     )
 
                     return
@@ -896,14 +659,16 @@ class XbarSConfigPopup(tk.Toplevel):
                 result["xbars"],
                 result["xbar_bar"],
                 result["xbar_ucl"],
-                result["xbar_lcl"]
+                result["xbar_lcl"],
+                language=self.main.current_lang
             )
 
             s_violations = check_nelson_rules(
                 result["stds"],
                 result["s_bar"],
                 result["s_ucl"],
-                result["s_lcl"]
+                result["s_lcl"],
+                language=self.main.current_lang
             )
 
             results.append({
@@ -957,14 +722,16 @@ class XbarSConfigPopup(tk.Toplevel):
                     result["xbars"],
                     result["xbar_bar"],
                     result["xbar_ucl"],
-                    result["xbar_lcl"]
+                    result["xbar_lcl"],
+                language=self.main.current_lang
                 )
 
                 s_violations = check_nelson_rules(
                     result["stds"],
                     result["s_bar"],
                     result["s_ucl"],
-                    result["s_lcl"]
+                    result["s_lcl"],
+                language=self.main.current_lang
                 )
 
                 results.append({
@@ -991,18 +758,15 @@ class XbarSConfigPopup(tk.Toplevel):
         if len(results) == 0:
 
             messagebox.showerror(
-                "Error",
-                "No valid subgroup generated"
+                self.main.t("error"),
+                self.main.t("no_valid_subgroup")
             )
 
             return
 
-        XbarSChartPopup(
-            self.main,
-            results
-        )
+        deliver_result(self, lambda: XbarSChartPopup(self.main, results))
 
-class XbarSChartPopup(tk.Toplevel):
+class XbarSChartPopup(EmbeddedChartFrame):
 
     def __init__(
         self,
@@ -1016,7 +780,7 @@ class XbarSChartPopup(tk.Toplevel):
 
         self.main = main
 
-        self.results = results
+        self.results = localize_chart_results(results, self.main.current_lang)
 
         self.title("Xbar-S Charts")
 
@@ -1024,7 +788,8 @@ class XbarSChartPopup(tk.Toplevel):
 
         self.create_ui()
 
-        self.save_analysis()
+        if save_to_history:
+            self.save_analysis()
 
     def save_analysis(self):
 
@@ -1038,7 +803,9 @@ class XbarSChartPopup(tk.Toplevel):
                 navigator_name=f'Xbar-S of {item["column"]}',
                 data={
                     "xbars": result["xbars"],
-                    "stds": result["stds"]
+                    "stds": result["stds"],
+                    "xbar_violations": item.get("xbar_violations", []),
+                    "s_violations": item.get("s_violations", [])
                 },
                 stats={
                     "xbar_bar": result["xbar_bar"],
@@ -1082,6 +849,8 @@ class XbarSChartPopup(tk.Toplevel):
             right_panel,
             weight=1
         )
+
+        favor_chart_panel(container)
 
         left_canvas = tk.Canvas(
             left_panel,
@@ -1235,6 +1004,7 @@ class XbarSChartPopup(tk.Toplevel):
                 x,
                 result["xbars"],
                 marker="o",
+                markevery=marker_stride(len(result["xbars"])),
                 linewidth=1.8,
                 label="Xbar"
             )
@@ -1308,6 +1078,7 @@ class XbarSChartPopup(tk.Toplevel):
                 x,
                 result["stds"],
                 marker="o",
+                markevery=marker_stride(len(result["stds"])),
                 linewidth=1.8,
                 color="#9467bd",
                 label="S"
@@ -1383,7 +1154,7 @@ class XbarSChartPopup(tk.Toplevel):
                 master=section
             )
 
-            chart_canvas.draw()
+            chart_canvas.draw_idle()
 
             chart_canvas.get_tk_widget().pack(
                 fill="both",
@@ -1416,12 +1187,12 @@ class XbarSChartPopup(tk.Toplevel):
 
             text.insert(
                 "end",
-                "INTERPRETATION\n\n"
+                f'{self.main.t("interpretation").upper()}\n\n'
             )
 
             text.insert(
                 "end",
-                item["interpretation"]
+                item.get("interpretation", "")
             )
 
             text.insert(
@@ -1431,12 +1202,12 @@ class XbarSChartPopup(tk.Toplevel):
 
             text.insert(
                 "end",
-                "RECOMMENDATION\n\n"
+                f'{self.main.t("recommendation").upper()}\n\n'
             )
 
             text.insert(
                 "end",
-                item["recommendation"]
+                item.get("recommendation", "")
             )
 
             text.insert(
@@ -1453,7 +1224,7 @@ class XbarSChartPopup(tk.Toplevel):
 
                 text.insert(
                     "end",
-                    "No violations detected\n\n"
+                    f'{self.main.t("no_violations_detected")}\n\n'
                 )
 
             else:
@@ -1498,7 +1269,7 @@ class XbarSChartPopup(tk.Toplevel):
 
                 text.insert(
                     "end",
-                    "No violations detected"
+                    self.main.t("no_violations_detected")
                 )
 
                 text.config(
@@ -1553,7 +1324,7 @@ class XbarSChartPopup(tk.Toplevel):
 
                 text.insert(
                     "end",
-                    "No violations detected\n\n"
+                    f'{self.main.t("no_violations_detected")}\n\n'
                 )
 
             else:
@@ -1595,7 +1366,7 @@ class XbarSChartPopup(tk.Toplevel):
 
                 text.insert(
                     "end",
-                    "No violations detected\n\n"
+                    f'{self.main.t("no_violations_detected")}\n\n'
                 )
 
             else:
@@ -1642,7 +1413,7 @@ class XbarSChartPopup(tk.Toplevel):
 
                 text.insert(
                     "end",
-                    "Additional Detected Rules:\n",
+                    f'{self.main.t("additional_detected_rules")}:\n',
                     "subtitle"
                 )
 
@@ -1664,7 +1435,7 @@ class XbarSChartPopup(tk.Toplevel):
 
             for rule in detected_rules:
 
-                info = rule_info.get(rule)
+                info = rule_details(rule, self.main.current_lang)
 
                 if not info:
                     continue
@@ -1677,7 +1448,7 @@ class XbarSChartPopup(tk.Toplevel):
 
                 text.insert(
                     "end",
-                    "Interpretation:\n",
+                    f'{self.main.t("interpretation")}:\n',
                     "subtitle"
                 )
 
@@ -1688,7 +1459,7 @@ class XbarSChartPopup(tk.Toplevel):
 
                 text.insert(
                     "end",
-                    "Recommendation:\n",
+                    f'{self.main.t("recommendation")}:\n',
                     "subtitle"
                 )
 

@@ -1,0 +1,13 @@
+test_edit_existing_cause_saves_text_without_replacing_other_content (tests.test_fishbone_editor_gui.FishboneEditorKeyboardGuiTests.test_edit_existing_cause_saves_text_without_replacing_other_content) ... ok
+test_enter_escape_focus_loss_and_ctrl_enter_confirmation (tests.test_fishbone_editor_gui.FishboneEditorKeyboardGuiTests.test_enter_escape_focus_loss_and_ctrl_enter_confirmation) ... ok
+test_fish_key_001_backspace_deletes_before_caret (tests.test_fishbone_editor_gui.FishboneEditorKeyboardGuiTests.test_fish_key_001_backspace_deletes_before_caret) ... ok
+test_fish_key_002_delete_deletes_after_caret (tests.test_fishbone_editor_gui.FishboneEditorKeyboardGuiTests.test_fish_key_002_delete_deletes_after_caret) ... ok
+test_fish_key_003_cursor_movement_and_mid_string_editing (tests.test_fishbone_editor_gui.FishboneEditorKeyboardGuiTests.test_fish_key_003_cursor_movement_and_mid_string_editing) ... ok
+test_fish_key_004_select_all_and_text_undo_redo (tests.test_fishbone_editor_gui.FishboneEditorKeyboardGuiTests.test_fish_key_004_select_all_and_text_undo_redo) ... ok
+test_fish_key_005_editing_keys_do_not_invoke_diagram_action (tests.test_fishbone_editor_gui.FishboneEditorKeyboardGuiTests.test_fish_key_005_editing_keys_do_not_invoke_diagram_action) ... ok
+test_light_is_default_and_theme_round_trips_without_losing_other_settings (tests.test_theme.ThemePersistenceTests.test_light_is_default_and_theme_round_trips_without_losing_other_settings) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.419s
+
+OK

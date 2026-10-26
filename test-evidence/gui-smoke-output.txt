@@ -1,0 +1,13 @@
+I18N_COMBINATIONS [('en', 'light', '#f3f6fa'), ('en', 'dark', '#171c24'), ('id', 'dark', '#171c24'), ('id', 'light', '#f3f6fa')]
+DIALOG_VALIDATION (1, 'Enter at least two observations for an I-MR chart.')
+DIALOG_RUNTIME_FAILURE (1, 'The chart could not be created: injected chart failure')
+IMR_CHART_THEME [(0.12549019607843137, 0.1568627450980392, 0.2, 1.0)]
+DIALOG_GENERATE (True, 1, 778, 719)
+FISHBONE_WORKFLOW {'effect': 'Seal leakage', 'edited_cause': 'Pumpseal leak', 'moved_and_deleted': True}
+FISHBONE_THEME ('Pumpseal leak', 'Pumpseal leak', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), (1.0, 1.0, 1.0, 1.0))
+FISHBONE_THEME_SAVE ('Pumpseal leak', 'Pumpseal leak')
+QUALITY_TOOLS_LIGHT_DARK ((1.0, 1.0, 1.0, 1.0), ('#222a35', '#222a35', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0)), (1.0, 1.0, 1.0, 1.0), '#222a35', (0.12549019607843137, 0.1568627450980392, 0.2, 1.0), [(0.11372549019607843, 0.1450980392156863, 0.18823529411764706, 1.0), (0.18823529411764706, 0.2784313725490196, 0.4, 1.0)])
+CHART_RESIZE ((850, 640, 628, 476), (1180, 790, 958, 600), [9.58, 6.0])
+HELP_AND_NEW_DIALOG_THEME ('#18212b', '#78aaff', '#171c24')
+DIALOG_POSITION ('424x240+2414+262', (422, 240, 2414, 262), (1968, 0, 3280, 768), (2422, 293, 2846, 533))
+THEME_RESTART (0, 0, 'dark', '{\n  "theme": "dark"\n}')

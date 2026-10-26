@@ -1,8 +1,11 @@
+from logic.validation import handle_validation_errors
 import tkinter as tk
 from tkinter import ttk,messagebox
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from logic.chart_canvas import FigureCanvasTkAgg
+from ui.chart_view import EmbeddedChartFrame
+from ui.dialogs import deliver_result
 from scipy.stats import norm
 from models.analysis import Analysis
 
@@ -152,13 +155,14 @@ class HistogramConfigPopup(tk.Toplevel):
 
         return numeric_data
 
+    @handle_validation_errors
     def generate(self):
         selected_column=self.column_combo.current()
 
         if selected_column==-1:
             messagebox.showerror(
                 self.main.t("error"),
-                self.main.t("please_select_colum")
+                self.main.t("please_select_column")
             )
             return
 
@@ -193,17 +197,11 @@ class HistogramConfigPopup(tk.Toplevel):
 
         column_name=self.column_var.get()
 
-        HistogramChartPopup(
-            self.main,
-            self,
-            data,
-            self.mode,
-            bins,
-            title,
-            column_name
-        )
+        deliver_result(self, lambda: HistogramChartPopup(
+            self.main, self, data, self.mode, bins, title, column_name
+        ), self.menu_popup)
 
-class HistogramChartPopup(tk.Toplevel):
+class HistogramChartPopup(EmbeddedChartFrame):
     def __init__(self, main, config_popup, data, mode, bins, title, column_name, analysis=None, save_to_history=True):
         super().__init__(main.root)
 
@@ -328,7 +326,7 @@ class HistogramChartPopup(tk.Toplevel):
             master=self
         )
 
-        canvas.draw()
+        canvas.draw_idle()
 
         canvas.get_tk_widget().pack(
             fill="both",
@@ -440,9 +438,9 @@ class HistogramChartPopup(tk.Toplevel):
 
         self.ax.set_axisbelow(True)
 
-        self.fig.patch.set_facecolor("white")
+        self.fig.patch.set_facecolor(self.main.theme_manager.palette["plot"])
 
-        self.ax.set_facecolor("white")
+        self.ax.set_facecolor(self.main.theme_manager.palette["plot"])
 
         self.ax.margins(x=0.02)
 
@@ -570,9 +568,9 @@ class HistogramChartPopup(tk.Toplevel):
 
         self.ax.set_axisbelow(True)
 
-        self.fig.patch.set_facecolor("white")
+        self.fig.patch.set_facecolor(self.main.theme_manager.palette["plot"])
 
-        self.ax.set_facecolor("white")
+        self.ax.set_facecolor(self.main.theme_manager.palette["plot"])
 
         self.ax.margins(x=0.02)
 
@@ -694,9 +692,9 @@ class HistogramChartPopup(tk.Toplevel):
 
         self.ax.set_axisbelow(True)
 
-        self.fig.patch.set_facecolor("white")
+        self.fig.patch.set_facecolor(self.main.theme_manager.palette["plot"])
 
-        self.ax.set_facecolor("white")
+        self.ax.set_facecolor(self.main.theme_manager.palette["plot"])
 
         self.ax.margins(x=0.02)
 

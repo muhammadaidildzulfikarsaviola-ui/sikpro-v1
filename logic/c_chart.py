@@ -1,3 +1,5 @@
+from logic.validation import handle_validation_errors, numeric_values
+from logic.nelson_rules import check_nelson_rules as _shared_nelson_rules, rule_details, localize_chart_results
 import tkinter as tk
 from tkinter import ttk, messagebox
 from resources import resource_path
@@ -6,194 +8,30 @@ import matplotlib.pyplot as plt
 
 from collections import Counter
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from logic.chart_canvas import FigureCanvasTkAgg, marker_stride
+from ui.chart_view import EmbeddedChartFrame, favor_chart_panel
+from ui.dialogs import deliver_result
 
 from models.analysis import Analysis
 from PIL import Image, ImageTk
 
 def clean_numeric(data):
-
-    cleaned = []
-
-    for x in data:
-
-        try:
-            cleaned.append(float(x))
-
-        except:
-            pass
-
-    return cleaned
+    return numeric_values(data)
 
 
-def get_rule_explanation(rule_no):
-
-    explanations = {
-
-        "Rule 1": (
-            "Titik melewati batas kendali",
-            "Kemungkinan special cause variation"
-        ),
-
-        "Rule 2": (
-            "9 titik berturut pada satu sisi mean",
-            "Kemungkinan process shift"
-        ),
-
-        "Rule 3": (
-            "Trend naik atau turun",
-            "Kemungkinan drift proses"
-        ),
-
-        "Rule 5": (
-            "2 dari 3 titik di zona A",
-            "Variasi proses mulai membesar"
-        ),
-
-        "Rule 6": (
-            "4 dari 5 titik di zona B",
-            "Pola abnormal proses"
-        )
-    }
-
-    return explanations.get(
-        rule_no,
-        ("Unknown", "No explanation")
-    )
+def get_rule_explanation(rule_no, language="id"):
+    details = rule_details(rule_no, language)
+    return details["description"], details["interpretation"]
 
 
-def check_nelson_rules(data, mean, ucl, lcl):
-
+def check_nelson_rules(data, mean, ucl, lcl, language="id"):
+    raw_violations = _shared_nelson_rules(data, mean, ucl, lcl, language=language)
     violations = []
-
-    sigma = (ucl - mean) / 3
-
-    zone_a = 2 * sigma
-    zone_b = sigma
-
-    for i, val in enumerate(data):
-
-        if val > ucl or val < lcl:
-
-            desc, cause = get_rule_explanation("Rule 1")
-
-            violations.append({
-
-                "rule": "Rule 1",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    count = 0
-    side = None
-
-    for i, val in enumerate(data):
-
-        current = val > mean
-
-        if current == side:
-
-            count += 1
-
-        else:
-
-            count = 1
-            side = current
-
-        if count >= 9:
-
-            desc, cause = get_rule_explanation("Rule 2")
-
-            violations.append({
-
-                "rule": "Rule 2",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    up = 0
-    down = 0
-
-    for i in range(1, len(data)):
-
-        if data[i] > data[i - 1]:
-
-            up += 1
-            down = 0
-
-        elif data[i] < data[i - 1]:
-
-            down += 1
-            up = 0
-
-        if up >= 5:
-
-            desc, cause = get_rule_explanation("Rule 3")
-
-            violations.append({
-
-                "rule": "Rule 3",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-        if down >= 5:
-
-            desc, cause = get_rule_explanation("Rule 3")
-
-            violations.append({
-
-                "rule": "Rule 3",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    for i in range(len(data) - 2):
-
-        subset = data[i:i + 3]
-
-        count = sum(
-            abs(x - mean) > zone_a
-            for x in subset
-        )
-
-        if count >= 2:
-
-            desc, cause = get_rule_explanation("Rule 5")
-
-            violations.append({
-
-                "rule": "Rule 5",
-                "point": i + 3,
-                "description": desc,
-                "cause": cause
-            })
-
-    for i in range(len(data) - 4):
-
-        subset = data[i:i + 5]
-
-        count = sum(
-            abs(x - mean) > zone_b
-            for x in subset
-        )
-
-        if count >= 4:
-
-            desc, cause = get_rule_explanation("Rule 6")
-
-            violations.append({
-
-                "rule": "Rule 6",
-                "point": i + 5,
-                "description": desc,
-                "cause": cause
-            })
-
+    for rule, point, description in raw_violations:
+        details = rule_details(rule, language)
+        violations.append({"rule": rule, "point": point,
+                           "description": description,
+                           "cause": details["interpretation"]})
     return violations
 
 
@@ -216,26 +54,18 @@ def get_most_frequent_rule(all_violations):
 
 
 def calculate_c_chart(data):
-
-    c_bar = np.mean(data)
-
+    counts = numeric_values(data, "c-chart counts")
+    if not counts:
+        raise ValueError("At least one c-chart observation is required")
+    if any(value < 0 for value in counts):
+        raise ValueError("c-chart counts must be nonnegative")
+    c_bar = float(np.mean(counts))
     sigma = np.sqrt(c_bar)
-
-    ucl = c_bar + (3 * sigma)
-
-    lcl = c_bar - (3 * sigma)
-
-    if lcl < 0:
-        lcl = 0
-
     return {
-
-        "counts": data,
-
+        "counts": counts,
         "c_bar": c_bar,
-
-        "ucl": ucl,
-        "lcl": lcl
+        "ucl": c_bar + 3 * sigma,
+        "lcl": max(0.0, c_bar - 3 * sigma),
     }
 
 
@@ -313,11 +143,9 @@ class CChartConfigPopup(tk.Toplevel):
 
         for i, col in enumerate(columns):
 
-            data = clean_numeric(
-                self.sheet.get_column_data(i)
-            )
+            data = self.sheet.get_column_data(i)
 
-            if len(data) == 0:
+            if not any(value is not None and str(value).strip() for value in data):
                 continue
 
             self.numeric_columns[col] = i
@@ -420,13 +248,14 @@ class CChartConfigPopup(tk.Toplevel):
                 col
             )
 
+    @handle_validation_errors
     def generate(self):
 
         if len(self.selected_columns) == 0:
 
             messagebox.showerror(
-                "Error",
-                "Select at least one column"
+                self.main.t("error"),
+                self.main.t("select_at_least_one_column")
             )
 
             return
@@ -454,7 +283,8 @@ class CChartConfigPopup(tk.Toplevel):
                 result["counts"],
                 result["c_bar"],
                 result["ucl"],
-                result["lcl"]
+                result["lcl"],
+                language=self.main.current_lang
             )
 
             results.append({
@@ -467,31 +297,29 @@ class CChartConfigPopup(tk.Toplevel):
         if len(results) == 0:
 
             messagebox.showerror(
-                "Error",
-                "No valid data"
+                self.main.t("error"),
+                self.main.t("no_valid_data")
             )
 
             return
 
-        CChartPopup(
-            self.main,
-            results
-        )
+        deliver_result(self, lambda: CChartPopup(self.main, results))
 
 
-class CChartPopup(tk.Toplevel):
+class CChartPopup(EmbeddedChartFrame):
 
     def __init__(
         self,
         main,
-        results
+        results,
+        save_to_history=True,
     ):
 
         super().__init__(main.root)
 
         self.main = main
 
-        self.results = results
+        self.results = localize_chart_results(results, self.main.current_lang)
 
         self.title("C Charts")
 
@@ -499,7 +327,8 @@ class CChartPopup(tk.Toplevel):
 
         self.create_ui()
 
-        self.save_analysis()
+        if save_to_history:
+            self.save_analysis()
 
     def save_analysis(self):
 
@@ -512,7 +341,8 @@ class CChartPopup(tk.Toplevel):
                 title="C Chart",
                 navigator_name=f'C Chart of {item["column"]}',
                 data={
-                    "counts": result["counts"]
+                    "counts": result["counts"],
+                    "violations": item["violations"]
                 },
                 stats={
                     "c_bar": result["c_bar"],
@@ -554,6 +384,8 @@ class CChartPopup(tk.Toplevel):
             weight=1
         )
 
+        favor_chart_panel(container)
+
         for item in self.results:
 
             section = ttk.LabelFrame(
@@ -586,6 +418,7 @@ class CChartPopup(tk.Toplevel):
                 x,
                 result["counts"],
                 marker="o",
+                markevery=marker_stride(len(result["counts"])),
                 linewidth=1.8,
                 label="C"
             )
@@ -660,7 +493,7 @@ class CChartPopup(tk.Toplevel):
                 master=section
             )
 
-            canvas.draw()
+            canvas.draw_idle()
 
             canvas.get_tk_widget().pack(
                 fill="both",

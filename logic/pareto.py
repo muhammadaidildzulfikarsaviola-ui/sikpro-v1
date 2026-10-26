@@ -1,10 +1,13 @@
+from logic.validation import handle_validation_errors
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from logic.chart_canvas import FigureCanvasTkAgg
+from ui.chart_view import EmbeddedChartFrame
+from ui.dialogs import deliver_result
 
 from models.analysis import Analysis
 
@@ -204,7 +207,7 @@ class ParetoConfigPopup(tk.Toplevel):
 
             messagebox.showerror(
                 self.main.t("error"),
-                "Please select column"
+                self.main.t("please_select_column")
             )
 
             return
@@ -219,7 +222,7 @@ class ParetoConfigPopup(tk.Toplevel):
 
             messagebox.showerror(
                 self.main.t("error"),
-                "Column must be numeric"
+                self.main.t("column_must_be_numeric")
             )
 
             return
@@ -228,13 +231,14 @@ class ParetoConfigPopup(tk.Toplevel):
 
             messagebox.showerror(
                 self.main.t("error"),
-                "Column must contain text/category"
+                self.main.t("column_must_contain_category")
             )
 
             return
 
         target_var.set(column_name)
 
+    @handle_validation_errors
     def generate(self):
     
         defect_col = self.defect_var.get().strip()
@@ -245,21 +249,16 @@ class ParetoConfigPopup(tk.Toplevel):
 
             messagebox.showerror(
                 self.main.t("error"),
-                self.main.t("defect_column_reuired")
+                self.main.t("defect_column_required")
             )
 
             return
 
-        ParetoChartPopup(
-            self.main,
-            self,
-            self.sheet,
-            defect_col,
-            freq_col,
-            by_col
-        )
+        deliver_result(self, lambda: ParetoChartPopup(
+            self.main, self, self.sheet, defect_col, freq_col, by_col
+        ))
 
-class ParetoChartPopup(tk.Toplevel):
+class ParetoChartPopup(EmbeddedChartFrame):
 
     def __init__(
         self,
@@ -285,6 +284,7 @@ class ParetoChartPopup(tk.Toplevel):
 
         self.labels = []
         self.values = []
+        self.saved_data = analysis.data if analysis and isinstance(analysis.data, dict) else None
 
         self.title(self.main.t("pareto_chart"))
 
@@ -345,65 +345,56 @@ class ParetoChartPopup(tk.Toplevel):
 
     def create_chart(self):
 
-        defect_idx = self.get_column_index(
-            self.defect_col
-        )
+        if self.saved_data is not None:
+            labels = list(self.saved_data.get("labels", []))
+            values = list(self.saved_data.get("values", []))
+        else:
+            defect_idx = self.get_column_index(self.defect_col)
+            defects = self.sheet.get_column_data(defect_idx)
 
-        defects = self.sheet.get_column_data(
-            defect_idx
-        )
+            if self.freq_col != "":
 
-        if self.freq_col != "":
+                freq_idx = self.get_column_index(self.freq_col)
 
-            freq_idx = self.get_column_index(
-                self.freq_col
-            )
+                freq_data = self.sheet.get_column_data(freq_idx)
 
-            freq_data = self.sheet.get_column_data(
-                freq_idx
-            )
+                labels = []
+                values = []
 
-            labels = []
-            values = []
+                for d, f in zip(defects, freq_data):
 
-            for d, f in zip(defects, freq_data):
+                    try:
 
-                try:
+                        d = str(d).strip()
+
+                        if d == "":
+                            continue
+
+                        labels.append(d)
+
+                        values.append(float(f))
+
+                    except (TypeError, ValueError):
+                        continue
+
+            else:
+
+                counts = {}
+
+                for d in defects:
 
                     d = str(d).strip()
 
                     if d == "":
                         continue
 
-                    labels.append(d)
+                    counts[d] = counts.get(d, 0) + 1
 
-                    values.append(float(f))
+                sorted_items = sorted(counts.items(), key=lambda x: x[1], reverse=True)
 
-                except:
-                    pass
+                labels = [x[0] for x in sorted_items]
 
-        else:
-
-            counts = {}
-
-            for d in defects:
-
-                d = str(d).strip()
-
-                if d == "":
-                    continue
-
-                counts[d] = counts.get(d, 0) + 1
-
-            sorted_items = sorted(
-                counts.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )
-
-            labels = [x[0] for x in sorted_items]
-
-            values = [x[1] for x in sorted_items]
+                values = [x[1] for x in sorted_items]
 
         self.labels = labels
         self.values = values
@@ -487,10 +478,11 @@ class ParetoChartPopup(tk.Toplevel):
             label.set_horizontalalignment("right")
 
         fig.subplots_adjust(
-            bottom=0.25
+            left=0.12,
+            right=0.88,
+            bottom=0.25,
+            top=0.90,
         )
-
-        fig.tight_layout()
         
 
         canvas = FigureCanvasTkAgg(
@@ -498,7 +490,7 @@ class ParetoChartPopup(tk.Toplevel):
             master=self
         )
 
-        canvas.draw()
+        canvas.draw_idle()
 
         canvas.get_tk_widget().pack(
             fill="both",

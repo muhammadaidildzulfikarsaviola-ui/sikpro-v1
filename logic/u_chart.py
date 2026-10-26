@@ -1,3 +1,5 @@
+from logic.validation import handle_validation_errors, numeric_values
+from logic.nelson_rules import check_nelson_rules as _shared_nelson_rules, rule_details, localize_chart_results, localize_violations
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -7,7 +9,9 @@ from resources import resource_path
 
 from collections import Counter
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from logic.chart_canvas import FigureCanvasTkAgg, marker_stride
+from ui.chart_view import EmbeddedChartFrame, favor_chart_panel
+from ui.dialogs import deliver_result
 
 from models.analysis import Analysis
 from PIL import Image, ImageTk
@@ -29,191 +33,22 @@ def center_window(window):
     )
 
 def clean_numeric(data):
-
-    cleaned = []
-
-    for x in data:
-
-        try:
-            cleaned.append(float(x))
-
-        except:
-            pass
-
-    return cleaned
+    return numeric_values(data)
 
 
-def get_rule_explanation(rule_no):
-
-    explanations = {
-
-        "Rule 1": (
-            "Titik melewati batas kendali",
-            "Kemungkinan special cause variation"
-        ),
-
-        "Rule 2": (
-            "9 titik berturut pada satu sisi mean",
-            "Kemungkinan process shift"
-        ),
-
-        "Rule 3": (
-            "Trend naik atau turun",
-            "Kemungkinan drift proses"
-        ),
-
-        "Rule 5": (
-            "2 dari 3 titik di zona A",
-            "Variasi proses mulai membesar"
-        ),
-
-        "Rule 6": (
-            "4 dari 5 titik di zona B",
-            "Pola abnormal proses"
-        )
-    }
-
-    return explanations.get(
-        rule_no,
-        ("Unknown", "No explanation")
-    )
+def get_rule_explanation(rule_no, language="id"):
+    details = rule_details(rule_no, language)
+    return details["description"], details["interpretation"]
 
 
-def check_nelson_rules(data, mean, ucls, lcls):
-
+def check_nelson_rules(data, mean, ucls, lcls, language="id"):
+    raw_violations = _shared_nelson_rules(data, mean, ucls, lcls, language=language)
     violations = []
-
-    avg_sigma = np.mean([
-        (ucls[i] - mean) / 3
-        for i in range(len(ucls))
-    ])
-
-    zone_a = 2 * avg_sigma
-    zone_b = avg_sigma
-
-    for i, val in enumerate(data):
-
-        if val > ucls[i] or val < lcls[i]:
-
-            desc, cause = get_rule_explanation("Rule 1")
-
-            violations.append({
-
-                "rule": "Rule 1",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    count = 0
-    side = None
-
-    for i, val in enumerate(data):
-
-        current = val > mean
-
-        if current == side:
-
-            count += 1
-
-        else:
-
-            count = 1
-            side = current
-
-        if count >= 9:
-
-            desc, cause = get_rule_explanation("Rule 2")
-
-            violations.append({
-
-                "rule": "Rule 2",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    up = 0
-    down = 0
-
-    for i in range(1, len(data)):
-
-        if data[i] > data[i - 1]:
-
-            up += 1
-            down = 0
-
-        elif data[i] < data[i - 1]:
-
-            down += 1
-            up = 0
-
-        if up >= 5:
-
-            desc, cause = get_rule_explanation("Rule 3")
-
-            violations.append({
-
-                "rule": "Rule 3",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-        if down >= 5:
-
-            desc, cause = get_rule_explanation("Rule 3")
-
-            violations.append({
-
-                "rule": "Rule 3",
-                "point": i + 1,
-                "description": desc,
-                "cause": cause
-            })
-
-    for i in range(len(data) - 2):
-
-        subset = data[i:i + 3]
-
-        count = sum(
-            abs(x - mean) > zone_a
-            for x in subset
-        )
-
-        if count >= 2:
-
-            desc, cause = get_rule_explanation("Rule 5")
-
-            violations.append({
-
-                "rule": "Rule 5",
-                "point": i + 3,
-                "description": desc,
-                "cause": cause
-            })
-
-    for i in range(len(data) - 4):
-
-        subset = data[i:i + 5]
-
-        count = sum(
-            abs(x - mean) > zone_b
-            for x in subset
-        )
-
-        if count >= 4:
-
-            desc, cause = get_rule_explanation("Rule 6")
-
-            violations.append({
-
-                "rule": "Rule 6",
-                "point": i + 5,
-                "description": desc,
-                "cause": cause
-            })
-
+    for rule, point, description in raw_violations:
+        details = rule_details(rule, language)
+        violations.append({"rule": rule, "point": point,
+                           "description": description,
+                           "cause": details["interpretation"]})
     return violations
 
 
@@ -235,131 +70,48 @@ def get_most_frequent_rule(all_violations):
     return f'{most_common[0]} ({most_common[1]} times)'
 
 
-def calculate_u_chart(
-    defects,
-    sample_sizes,
-    distribution="Poisson"
-):
+def calculate_u_chart(defects, sample_sizes, distribution="Poisson"):
+    """Calculate u-chart points and limits; preserve the legacy result keys."""
+    defects = numeric_values(defects, "defects")
+    sample_sizes = numeric_values(sample_sizes, "sample sizes")
+    if not defects:
+        raise ValueError("At least one defect observation is required")
+    if len(defects) != len(sample_sizes):
+        raise ValueError("Defect and sample-size columns must have equal lengths")
+    if any(value < 0 for value in defects):
+        raise ValueError("Defect counts must be nonnegative")
+    if any(value <= 0 for value in sample_sizes):
+        raise ValueError("Sample sizes must be positive")
+    if distribution not in ("Poisson", "Normal", "Binomial"):
+        raise ValueError("Distribution must be Poisson, Normal, or Binomial")
 
-    u_values = [
-
-        defects[i] / sample_sizes[i]
-
-        for i in range(len(defects))
-    ]
-
-    total_defects = sum(defects)
-
+    u_values = [defects[i] / sample_sizes[i] for i in range(len(defects))]
     total_units = sum(sample_sizes)
-
-    u_bar = total_defects / total_units
-
-    ucls = []
-    lcls = []
-
-    # =====================================
-    # POISSON
-    # =====================================
+    u_bar = sum(defects) / total_units
 
     if distribution == "Poisson":
-
-        avg_n = np.mean(
-            sample_sizes
-        )
-
-        sigma = np.sqrt(
-            u_bar / avg_n
-        )
-
-        ucl = u_bar + (3 * sigma)
-
-        lcl = u_bar - (3 * sigma)
-
-        if lcl < 0:
-
-            lcl = 0
-
-        ucls = [
-            ucl
-            for _ in u_values
-        ]
-
-        lcls = [
-            lcl
-            for _ in u_values
-        ]
-
-    # =====================================
-    # NORMAL
-    # =====================================
-
+        sigmas = [np.sqrt(u_bar / size) for size in sample_sizes]
     elif distribution == "Normal":
+        if len(u_values) < 2:
+            raise ValueError("Normal mode requires at least two observations")
+        sigma = float(np.std(u_values, ddof=1))
+        sigmas = [sigma] * len(u_values)
+    else:
+        # Retain the application's legacy binomial rate model; it is not the
+        # standard Poisson u-chart model. Reject impossible proportions explicitly.
+        if any(defect > size for defect, size in zip(defects, sample_sizes)):
+            raise ValueError("Binomial mode requires defects not to exceed sample size")
+        sigmas = [np.sqrt(u_bar * (1 - u_bar) / size) for size in sample_sizes]
 
-        sigma = np.std(
-            u_values,
-            ddof=1
-        )
-
-        ucl = u_bar + (3 * sigma)
-
-        lcl = u_bar - (3 * sigma)
-
-        if lcl < 0:
-
-            lcl = 0
-
-        ucls = [
-            ucl
-            for _ in u_values
-        ]
-
-        lcls = [
-            lcl
-            for _ in u_values
-        ]
-
-    # =====================================
-    # BINOMIAL
-    # =====================================
-
-    elif distribution == "Binomial":
-
-        p_bar = total_defects / total_units
-
-        for n in sample_sizes:
-
-            sigma = np.sqrt(
-                (
-                    p_bar *
-                    (1 - p_bar)
-                ) / n
-            )
-
-            ucl = p_bar + (3 * sigma)
-
-            lcl = p_bar - (3 * sigma)
-
-            if lcl < 0:
-
-                lcl = 0
-
-            ucls.append(ucl)
-
-            lcls.append(lcl)
-
+    ucls = [u_bar + 3 * sigma for sigma in sigmas]
+    lcls = [max(0.0, u_bar - 3 * sigma) for sigma in sigmas]
     return {
-
         "u_values": u_values,
-
         "sample_sizes": sample_sizes,
-
         "u_bar": u_bar,
-
         "ucls": ucls,
-
         "lcls": lcls,
-
-        "distribution": distribution
+        "distribution": distribution,
     }
 
 class UChartModePopup(tk.Toplevel):
@@ -421,22 +173,10 @@ class UChartModePopup(tk.Toplevel):
         )
 
     def use_raw(self):
-
-        self.destroy()
-
-        UChartConfigPopup(
-            self.main,
-            self.sheet
-        )
+        deliver_result(self, lambda: UChartConfigPopup(self.main, self.sheet))
 
     def use_converted(self):
-
-        self.destroy()
-
-        UChartConvertedPopup(
-            self.main,
-            self.sheet
-        )
+        deliver_result(self, lambda: UChartConvertedPopup(self.main, self.sheet))
 class UChartConfigPopup(tk.Toplevel):
 
     def __init__(self, main, sheet, analysis=None, save_to_history=True):
@@ -513,11 +253,9 @@ class UChartConfigPopup(tk.Toplevel):
 
         for i, col in enumerate(columns):
 
-            data = clean_numeric(
-                self.sheet.get_column_data(i)
-            )
+            data = self.sheet.get_column_data(i)
 
-            if len(data) == 0:
+            if not any(value is not None and str(value).strip() for value in data):
                 continue
 
             self.numeric_columns[col] = i
@@ -645,13 +383,14 @@ class UChartConfigPopup(tk.Toplevel):
             text=f'Sample Size : {self.sample_column}'
         )
 
+    @handle_validation_errors
     def generate(self):
 
         if not self.defect_column:
 
             messagebox.showerror(
-                "Error",
-                "Select defect count column"
+                self.main.t("error"),
+                self.main.t("select_defect_count_column")
             )
 
             return
@@ -659,8 +398,8 @@ class UChartConfigPopup(tk.Toplevel):
         if not self.sample_column:
 
             messagebox.showerror(
-                "Error",
-                "Select sample size column"
+                self.main.t("error"),
+                self.main.t("select_sample_size_column")
             )
 
             return
@@ -681,14 +420,6 @@ class UChartConfigPopup(tk.Toplevel):
             self.sheet.get_column_data(sample_idx)
         )
 
-        min_len = min(
-            len(defects),
-            len(sample_sizes)
-        )
-
-        defects = defects[:min_len]
-        sample_sizes = sample_sizes[:min_len]
-
         distribution = self.distribution_var.get()
 
         result = calculate_u_chart(
@@ -701,19 +432,16 @@ class UChartConfigPopup(tk.Toplevel):
             result["u_values"],
             result["u_bar"],
             result["ucls"],
-            result["lcls"]
+            result["lcls"],
+                language=self.main.current_lang
         )
 
-        UChartPopup(
-            self.main,
-            result,
-            violations,
-            self.defect_column,
-            distribution
-        )
+        deliver_result(self, lambda: UChartPopup(
+            self.main, result, violations, self.defect_column, distribution
+        ))
 
 
-class UChartPopup(tk.Toplevel):
+class UChartPopup(EmbeddedChartFrame):
 
     def __init__(
         self,
@@ -730,7 +458,7 @@ class UChartPopup(tk.Toplevel):
         self.main = main
 
         self.result = result
-        if "ucls" not in self.result:
+        if "ucls" not in self.result and not self.result.get("_limits_unavailable"):
 
             u_values = self.result["u_values"]
 
@@ -759,7 +487,7 @@ class UChartPopup(tk.Toplevel):
                 for _ in u_values
             ]
 
-        self.violations = violations or []
+        self.violations = localize_violations(violations or [], self.main.current_lang)
 
         self.column_name = column_name
 
@@ -784,7 +512,10 @@ class UChartPopup(tk.Toplevel):
             title="U Chart",
             navigator_name=f'U Chart of {self.column_name}',
             data={
-                "u_values": self.result["u_values"]
+                "u_values": self.result["u_values"],
+                "ucls": self.result["ucls"],
+                "lcls": self.result["lcls"],
+                "violations": self.violations
             },
             stats={
                 "u_bar": self.result["u_bar"]
@@ -825,6 +556,8 @@ class UChartPopup(tk.Toplevel):
             weight=1
         )
 
+        favor_chart_panel(container)
+
         fig, ax = plt.subplots(
             figsize=(15, 6)
         )
@@ -838,28 +571,30 @@ class UChartPopup(tk.Toplevel):
             x,
             self.result["u_values"],
             marker="o",
+            markevery=marker_stride(len(self.result["u_values"])),
             linewidth=1.8,
             label="U"
         )
 
-        ax.plot(
-            x,
-            self.result["ucls"],
-            linestyle="--",
-            color="red",
-            label="UCL"
-        )
+        if "ucls" in self.result and "lcls" in self.result:
+            ax.plot(
+                x,
+                self.result["ucls"],
+                linestyle="--",
+                color="red",
+                label="UCL"
+            )
 
-        ax.plot(
-            x,
-            self.result["lcls"],
-            linestyle="--",
-            color="red",
-            label="LCL"
-        )
+            ax.plot(
+                x,
+                self.result["lcls"],
+                linestyle="--",
+                color="red",
+                label="LCL"
+            )
         max_u = max(self.result["u_values"])
 
-        max_ucl = max(self.result["ucls"])
+        max_ucl = max(self.result.get("ucls", [0]))
 
         ax.set_ylim(
             0,
@@ -925,7 +660,7 @@ class UChartPopup(tk.Toplevel):
             master=left
         )
 
-        canvas.draw()
+        canvas.draw_idle()
 
         canvas.get_tk_widget().pack(
             fill="both",
@@ -1088,11 +823,9 @@ class UChartConvertedPopup(tk.Toplevel):
 
         for i, col in enumerate(columns):
 
-            data = clean_numeric(
-                self.sheet.get_column_data(i)
-            )
+            data = self.sheet.get_column_data(i)
 
-            if len(data) == 0:
+            if not any(value is not None and str(value).strip() for value in data):
                 continue
 
             self.numeric_columns[col] = i
@@ -1184,13 +917,14 @@ class UChartConvertedPopup(tk.Toplevel):
             text=f'Converted Column : {self.converted_column}'
         )
 
+    @handle_validation_errors
     def generate(self):
 
         if not self.converted_column:
 
             messagebox.showerror(
-                "Error",
-                "Select converted column"
+                self.main.t("error"),
+                self.main.t("select_converted_column")
             )
 
             return
@@ -1205,14 +939,8 @@ class UChartConvertedPopup(tk.Toplevel):
             )
         )
 
-        if len(u_values) == 0:
-
-            messagebox.showerror(
-                "Error",
-                "No valid converted data"
-            )
-
-            return
+        if len(u_values) < 2:
+            raise ValueError("At least two valid converted observations are required")
 
         distribution = self.distribution_var.get()
 
@@ -1260,15 +988,14 @@ class UChartConvertedPopup(tk.Toplevel):
             result["u_values"],
             result["u_bar"],
             result["ucls"],
-            result["lcls"]
+            result["lcls"],
+                language=self.main.current_lang
         )
 
-        self.destroy()
-
-        UChartPopup(
+        deliver_result(self, lambda: UChartPopup(
             self.main,
             result,
             violations,
             self.converted_column,
             distribution
-        )
+        ))

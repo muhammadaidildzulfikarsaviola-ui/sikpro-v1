@@ -120,9 +120,9 @@ class Sheet:
 
         current_data = self.sheet.get_sheet_data()
 
-        rows = len(current_data)
+        rows = len(current_data) if current_data else 201
 
-        cols = len(current_data[0])
+        cols = len(current_data[0]) if current_data and current_data[0] else 200
 
         empty_data = [
             ["" for _ in range(cols)]
@@ -136,24 +136,26 @@ class Sheet:
     def get_column_data(self, col_index):
 
         data = self.sheet.get_sheet_data()
+        if col_index < 0:
+            raise ValueError("Column index must be nonnegative")
 
-        values = []
+        last_nonempty = -1
+        for row_index, row in enumerate(data):
+            value = row[col_index] if col_index < len(row) else ""
+            if value is not None and str(value).strip() != "":
+                last_nonempty = row_index
 
-        for row in data:
+        if last_nonempty < 0:
+            return []
 
-            if not row:
-                continue
+        # Preserve interior blank cells so numeric validation can report their
+        # original row instead of silently shifting later observations upward.
+        return [
+            row[col_index] if col_index < len(row) else ""
+            for row in data[:last_nonempty + 1]
+        ]
 
-            if col_index >= len(row):
-                continue
-
-            value = row[col_index]
-
-            if value is None:
-                continue
-
-            if str(value).strip() != "":
-
-                values.append(value)
-
-        return values
+    def get_column_data_with_rows(self, col_index):
+        """Return cells through the last used row with their 1-based row numbers."""
+        values = self.get_column_data(col_index)
+        return list(enumerate(values, start=1))

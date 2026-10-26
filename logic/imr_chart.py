@@ -1,82 +1,19 @@
+from logic.validation import handle_validation_errors, numeric_values
+from logic.nelson_rules import check_nelson_rules as _shared_nelson_rules, rule_details, localize_chart_results, localize_violations
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from logic.chart_canvas import FigureCanvasTkAgg, marker_stride
+from ui.chart_view import EmbeddedChartFrame, favor_chart_panel
+from ui.dialogs import deliver_result
 
 
 from models.analysis import Analysis
-from core.lang import LANG
 from PIL import Image, ImageTk
 
-rule_info = {
-
-    "Rule 1": {
-        "name": "Point Beyond Control Limits",
-        "interpretation":
-        "Terdapat satu atau lebih titik data yang berada di luar batas kendali (UCL/LCL), mengindikasikan adanya special cause variation dalam proses.",
-        "recommendation":
-        "Lakukan investigasi terhadap kondisi proses pada titik tersebut, termasuk faktor mesin, material, metode, dan operator."
-    },
-
-    "Rule 2": {
-        "name": "Shift (Process Shift)",
-        "interpretation":
-        "Terjadi pergeseran rata-rata proses yang ditandai dengan beberapa titik berturut-turut berada di satu sisi garis tengah.",
-        "recommendation":
-        "Evaluasi kemungkinan perubahan sistematis seperti penyesuaian mesin, pergantian operator, atau perubahan bahan baku."
-    },
-
-    "Rule 3": {
-        "name": "Trend (Systematic Trend)",
-        "interpretation":
-        "Terdapat kecenderungan peningkatan atau penurunan secara bertahap yang menunjukkan adanya perubahan sistematis dalam proses.",
-        "recommendation":
-        "Identifikasi potensi drift pada mesin, keausan alat, atau faktor lingkungan yang berubah secara gradual."
-    },
-
-    "Rule 4": {
-        "name": "Oscillation (Alternating Pattern)",
-        "interpretation":
-        "Pola data menunjukkan fluktuasi naik-turun secara bergantian, mengindikasikan adanya variasi yang tidak acak.",
-        "recommendation":
-        "Periksa kemungkinan over-adjustment (tampering) atau inkonsistensi dalam pengendalian proses."
-    },
-
-    "Rule 5": {
-        "name": "Zone A Violation",
-        "interpretation":
-        "Beberapa titik berada pada zona A (mendekati batas kendali), menunjukkan adanya indikasi awal ketidakstabilan proses.",
-        "recommendation":
-        "Lakukan monitoring lebih intensif dan identifikasi faktor penyebab sebelum terjadi out of control."
-    },
-
-    "Rule 6": {
-        "name": "Zone B Pattern",
-        "interpretation":
-        "Pola titik menunjukkan kecenderungan berada di zona B, mengindikasikan potensi bias sistematis dalam proses.",
-        "recommendation":
-        "Evaluasi konsistensi proses dan kondisi operasional yang mungkin menyebabkan deviasi berulang."
-    },
-
-    "Rule 7": {
-        "name": "Stratification (Overcontrol)",
-        "interpretation":
-        "Variasi proses terlalu kecil dan seluruh titik berada dekat garis tengah, mengindikasikan kemungkinan overcontrol atau kurangnya variasi alami.",
-        "recommendation":
-        "Tinjau metode pengendalian proses dan pastikan tidak terjadi manipulasi data atau penyesuaian berlebihan."
-    },
-
-    "Rule 8": {
-        "name": "Mixture (High Variation)",
-        "interpretation":
-        "Data menunjukkan penyebaran yang luas dengan pola tidak beraturan, mengindikasikan adanya variasi tinggi dari berbagai sumber.",
-        "recommendation":
-        "Identifikasi dan pisahkan sumber variasi yang berbeda, seperti perbedaan mesin, operator, atau batch produksi."
-    }
-}
 rule_images = {
     "Rule 1": "rules/rules1.png",
     "Rule 2": "rules/rules2.png",
@@ -88,234 +25,29 @@ rule_images = {
     "Rule 8": "rules/rules8.png",
 }
 def clean_numeric(data):
-
-    cleaned = []
-
-    for x in data:
-
-        try:
-            cleaned.append(float(x))
-        except:
-            pass
-
-    return cleaned
+    return numeric_values(data)
 
 
 def moving_range(data):
-
-    mr = []
-
-    for i in range(1, len(data)):
-
-        mr.append(
-            abs(data[i] - data[i - 1])
-        )
-
-    return mr
+    values = numeric_values(data, "I-MR data")
+    if len(values) < 2:
+        raise ValueError("I-MR chart requires at least two observations")
+    return [abs(values[index] - values[index - 1]) for index in range(1, len(values))]
 
 
 def control_limits(data):
-
-    mean = np.mean(data)
-
-    mr = moving_range(data)
-
-    mr_bar = np.mean(mr)
-
+    values = numeric_values(data, "I-MR data")
+    if len(values) < 2:
+        raise ValueError("I-MR chart requires at least two observations")
+    mean = float(np.mean(values))
+    mr_bar = float(np.mean([abs(values[index] - values[index - 1])
+                            for index in range(1, len(values))]))
     sigma = mr_bar / 1.128
-
-    ucl = mean + (3 * sigma)
-    lcl = mean - (3 * sigma)
-
-    return mean, ucl, lcl, sigma
+    return mean, mean + 3 * sigma, mean - 3 * sigma, sigma
 
 
-def check_nelson_rules(
-    data,
-    mean,
-    ucl,
-    lcl
-):
-
-    violations = []
-
-    sigma = (ucl - mean) / 3
-
-    zone_a = 2 * sigma
-    zone_b = sigma
-
-    for i, val in enumerate(data):
-
-        if val > ucl or val < lcl:
-
-            violations.append(
-                (
-                    "Rule 1",
-                    i + 1,
-                    "Point beyond control limit"
-                )
-            )
-
-    count = 0
-    side = None
-
-    for i, val in enumerate(data):
-
-        current = val > mean
-
-        if current == side:
-
-            count += 1
-
-        else:
-
-            count = 1
-            side = current
-
-        if count >= 9:
-
-            violations.append(
-                (
-                    "Rule 2",
-                    i + 1,
-                    "Shift detected"
-                )
-            )
-
-    up = 0
-    down = 0
-
-    for i in range(1, len(data)):
-
-        if data[i] > data[i - 1]:
-
-            up += 1
-            down = 0
-
-        elif data[i] < data[i - 1]:
-
-            down += 1
-            up = 0
-
-        if up >= 5:
-
-            violations.append(
-                (
-                    "Rule 3",
-                    i + 1,
-                    "Upward trend"
-                )
-            )
-
-        if down >= 5:
-
-            violations.append(
-                (
-                    "Rule 3",
-                    i + 1,
-                    "Downward trend"
-                )
-            )
-
-    zigzag = 0
-
-    for i in range(2, len(data)):
-
-        if (
-            data[i] > data[i - 1] < data[i - 2]
-        ) or (
-            data[i] < data[i - 1] > data[i - 2]
-        ):
-
-            zigzag += 1
-
-        else:
-
-            zigzag = 0
-
-        if zigzag >= 13:
-
-            violations.append(
-                (
-                    "Rule 4",
-                    i + 1,
-                    "Oscillation"
-                )
-            )
-
-    for i in range(len(data) - 2):
-
-        subset = data[i:i + 3]
-
-        count = sum(
-            abs(x - mean) > zone_a
-            for x in subset
-        )
-
-        if count >= 2:
-
-            violations.append(
-                (
-                    "Rule 5",
-                    i + 3,
-                    "Zone A violation"
-                )
-            )
-
-    for i in range(len(data) - 4):
-
-        subset = data[i:i + 5]
-
-        count = sum(
-            abs(x - mean) > zone_b
-            for x in subset
-        )
-
-        if count >= 4:
-
-            violations.append(
-                (
-                    "Rule 6",
-                    i + 5,
-                    "Zone B pattern"
-                )
-            )
-
-    for i in range(len(data) - 14):
-
-        subset = data[i:i + 15]
-
-        if all(
-            abs(x - mean) < zone_b
-            for x in subset
-        ):
-
-            violations.append(
-                (
-                    "Rule 7",
-                    i + 15,
-                    "Stratification"
-                )
-            )
-
-    for i in range(len(data) - 7):
-
-        subset = data[i:i + 8]
-
-        if all(
-            abs(x - mean) > zone_b
-            for x in subset
-        ):
-
-            violations.append(
-                (
-                    "Rule 8",
-                    i + 8,
-                    "Mixture"
-                )
-            )
-
-    return violations
+def check_nelson_rules(data, mean, ucl, lcl, language="id"):
+    return _shared_nelson_rules(data, mean, ucl, lcl, language=language)
 
 
 def show_imr(
@@ -413,6 +145,7 @@ def show_imr(
         x,
         data,
         marker="o",
+        markevery=marker_stride(len(data)),
         linewidth=1.8
     )
 
@@ -632,9 +365,7 @@ class IMRConfigPopup(tk.Toplevel):
 
             data = self.sheet.get_column_data(i)
 
-            cleaned = clean_numeric(data)
-
-            if len(cleaned) == 0:
+            if not any(value is not None and str(value).strip() for value in data):
                 continue
 
             self.numeric_columns[col] = i
@@ -671,6 +402,7 @@ class IMRConfigPopup(tk.Toplevel):
             column_name
         )
 
+    @handle_validation_errors
     def generate(self):
 
         column = (
@@ -704,19 +436,16 @@ class IMRConfigPopup(tk.Toplevel):
             data,
             mean,
             ucl,
-            lcl
+            lcl,
+                language=self.main.current_lang
         )
 
-        IMRChartPopup(
-            self.main,
-            self,
-            data,
-            column,
-            violations
-        )
+        deliver_result(self, lambda: IMRChartPopup(
+            self.main, self, data, column, violations
+        ))
 
 
-class IMRChartPopup(tk.Toplevel):
+class IMRChartPopup(EmbeddedChartFrame):
     
     def __init__(
         self,
@@ -737,7 +466,7 @@ class IMRChartPopup(tk.Toplevel):
 
         self.data = data
         self.column_name = column_name
-        self.violations = violations
+        self.violations = localize_violations(violations, self.main.current_lang)
 
         self.title(
             f"{self.main.t('imr_chart')} - {column_name}"
@@ -895,6 +624,8 @@ class IMRChartPopup(tk.Toplevel):
             right_panel,
             weight=1
         )
+
+        favor_chart_panel(container)
 
         # =====================================
         # DATA
@@ -1064,6 +795,7 @@ class IMRChartPopup(tk.Toplevel):
             x_i,
             self.data,
             marker="o",
+            markevery=marker_stride(len(self.data)),
             linewidth=1.8,
             color="blue"
         )
@@ -1170,6 +902,7 @@ class IMRChartPopup(tk.Toplevel):
             x_mr,
             mr_data,
             marker="o",
+            markevery=marker_stride(len(mr_data)),
             linewidth=1.8,
             color="#9467bd"
         )
@@ -1269,6 +1002,7 @@ class IMRChartPopup(tk.Toplevel):
             x_i,
             self.data,
             marker="o",
+            markevery=marker_stride(len(self.data)),
             linewidth=1.8,
             color="#ff7f0e"
         )
@@ -1374,7 +1108,7 @@ class IMRChartPopup(tk.Toplevel):
             master=scrollable_frame
         )
 
-        chart_canvas.draw()
+        chart_canvas.draw_idle()
 
         chart_canvas.get_tk_widget().pack(
             fill="both",
@@ -1567,7 +1301,7 @@ class IMRChartPopup(tk.Toplevel):
 
                 widget.insert(
                     "end",
-                    "Additional Detected Rules:\n",
+                    f'{self.main.t("additional_detected_rules")}:\n',
                     "subtitle"
                 )
 
@@ -1585,7 +1319,7 @@ class IMRChartPopup(tk.Toplevel):
 
             for rule in detected_rules:
 
-                info = rule_info.get(rule)
+                info = rule_details(rule, self.main.current_lang)
 
                 if not info:
                     continue
