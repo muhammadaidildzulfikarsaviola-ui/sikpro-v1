@@ -10,13 +10,15 @@ class ApplicationLauncher:
     WINDOW_WIDTH = 960
     WINDOW_HEIGHT = 640
 
-    def __init__(self, root, open_spc, settings_path=None):
+    def __init__(self, root, open_spc, settings_path=None, open_layout=None):
         self.root = root
         self.open_spc_callback = open_spc
+        self.open_layout_callback = open_layout
         self.theme_manager = ThemeManager(self, settings_path=settings_path)
         self.current_lang = self.theme_manager.language
         self.lang_data = LANG[self.current_lang]
         self._opening_spc = False
+        self._opening_layout = False
         self.root.title("SIKPRO")
         self.root.state("normal")
         self.root.resizable(False, False)
@@ -100,7 +102,10 @@ class ApplicationLauncher:
 
         applications = (
             ("spc", "launcher_app_spc", "launcher_spc_description", "launcher_available", "launcher_open_spc", "chart", True),
-            ("layout", "launcher_app_layout", "launcher_layout_description", "launcher_in_development", "launcher_coming_soon", "layout", False),
+            ("layout", "launcher_app_layout", "launcher_layout_description",
+             "launcher_available" if self.open_layout_callback else "launcher_in_development",
+             "launcher_open_layout" if self.open_layout_callback else "launcher_coming_soon",
+             "layout", bool(self.open_layout_callback)),
             ("inventory", "launcher_app_inventory", "launcher_inventory_description", "launcher_planned", "launcher_unavailable", "inventory", False),
             ("forecasting", "launcher_app_forecasting", "launcher_forecasting_description", "launcher_planned", "launcher_unavailable", "forecasting", False),
             ("mrp", "launcher_app_mrp", "launcher_mrp_description", "launcher_planned", "launcher_unavailable", "mrp", False),
@@ -152,7 +157,8 @@ class ApplicationLauncher:
         description.grid(row=1, column=0, sticky="new", pady=(5, 5))
         self.card_description_labels.append(description)
         if enabled:
-            button = ttk.Button(card, text=self.t(action_key), command=self.open_spc)
+            command = self.open_spc if key == "spc" else self.open_layout
+            button = ttk.Button(card, text=self.t(action_key), command=command)
         else:
             button = ttk.Button(card, text=self.t(action_key), state="disabled")
         button.grid(row=2, column=0, sticky="ew")
@@ -208,6 +214,20 @@ class ApplicationLauncher:
         except Exception as exc:
             self._opening_spc = False
             self.spc_button.configure(state="normal")
+            messagebox.showerror(self.t("error"), str(exc), parent=self.root)
+            return
+        self.frame.destroy()
+
+    def open_layout(self):
+        if self._opening_layout or not self.open_layout_callback:
+            return
+        self._opening_layout = True
+        self.layout_button.configure(state="disabled")
+        try:
+            self.open_layout_callback(self.theme_manager)
+        except Exception as exc:
+            self._opening_layout = False
+            self.layout_button.configure(state="normal")
             messagebox.showerror(self.t("error"), str(exc), parent=self.root)
             return
         self.frame.destroy()

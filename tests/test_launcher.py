@@ -27,7 +27,8 @@ class ApplicationLauncherTests(unittest.TestCase):
 
     def make_launcher(self, callback=None):
         return ApplicationLauncher(
-            self.root, callback or (lambda _theme_manager: None), self.settings_path
+            self.root, callback or (lambda _theme_manager: None), self.settings_path,
+            open_layout=lambda _theme_manager: None,
         )
 
     def test_seven_cards_use_three_column_grid_and_only_spc_is_available(self):
@@ -44,8 +45,8 @@ class ApplicationLauncherTests(unittest.TestCase):
         )
         self.assertEqual(launcher.current_lang, "en")
         self.assertEqual(launcher.spc_button.cget("text"), "Open SPC")
-        self.assertEqual(launcher.layout_button.cget("text"), "Coming Soon")
-        self.assertIn("disabled", launcher.layout_button.state())
+        self.assertEqual(launcher.layout_button.cget("text"), "Open Layout")
+        self.assertNotIn("disabled", launcher.layout_button.state())
         self.assertEqual(len(launcher.cards_by_key), 7)
         self.assertEqual(
             [(key, int(card["frame"].grid_info()["row"]), int(card["frame"].grid_info()["column"]))
@@ -58,7 +59,7 @@ class ApplicationLauncherTests(unittest.TestCase):
         self.assertLessEqual(launcher.cards.winfo_y() + launcher.cards.winfo_height(),
                              launcher.frame.winfo_height())
         self.assertEqual(launcher.cards_by_key["spc"]["status"].cget("text"), "Available")
-        self.assertEqual(launcher.cards_by_key["layout"]["status"].cget("text"), "In Development")
+        self.assertEqual(launcher.cards_by_key["layout"]["status"].cget("text"), "Available")
         for key in ("inventory", "forecasting", "mrp", "work_measurement", "optimization"):
             self.assertEqual(launcher.cards_by_key[key]["status"].cget("text"), "Planned")
         for key, card_data in launcher.cards_by_key.items():
@@ -68,7 +69,7 @@ class ApplicationLauncherTests(unittest.TestCase):
             self.assertLessEqual(card.winfo_y() + card.winfo_height(), launcher.cards.winfo_height())
             for child in card.winfo_children():
                 self.assertLessEqual(child.winfo_y() + child.winfo_height(), card.winfo_height())
-            if key != "spc":
+            if key not in ("spc", "layout"):
                 self.assertIn("disabled", card_data["button"].state())
 
     def test_translations_and_theme_are_applied_to_all_cards(self):
@@ -76,23 +77,25 @@ class ApplicationLauncherTests(unittest.TestCase):
         expected = {
             "en": {
                 "titles": ["SPC", "Layout", "Inventory", "Forecasting", "MRP", "Work Measurement", "Optimization"],
-                "statuses": ["Available", "In Development"] + ["Planned"] * 5,
+                "statuses": ["Available", "Available"] + ["Planned"] * 5,
                 "descriptions": [
                     "Analyze process variation", "Design factory layouts", "Track stock levels",
                     "Estimate future demand", "Plan the materials", "Study work methods",
                     "Compare choices",
                 ],
                 "button": "Not Available Yet",
+                "layout_button": "Open Layout",
             },
             "id": {
                 "titles": ["SPC", "Tata Letak", "Persediaan", "Peramalan", "MRP", "Pengukuran Kerja", "Optimasi"],
-                "statuses": ["Tersedia", "Dalam Pengembangan"] + ["Direncanakan"] * 5,
+                "statuses": ["Tersedia", "Tersedia"] + ["Direncanakan"] * 5,
                 "descriptions": [
                     "Analisis variasi proses", "Rancang tata letak", "Pantau jumlah stok",
                     "Perkirakan permintaan", "Rencanakan bahan", "Pelajari metode",
                     "Bandingkan pilihan",
                 ],
                 "button": "Belum Tersedia",
+                "layout_button": "Buka Tata Letak",
             },
         }
         for language, mode in (
@@ -119,16 +122,28 @@ class ApplicationLauncherTests(unittest.TestCase):
                 self.assertLessEqual(card_data["button"].winfo_y() + card_data["button"].winfo_height(),
                                      card_data["frame"].winfo_height())
             self.assertEqual(launcher.spc_button.cget("text"), "Open SPC" if language == "en" else "Buka SPC")
-            self.assertEqual(launcher.layout_button.cget("text"), "Coming Soon" if language == "en" else "Segera Hadir")
+            self.assertEqual(launcher.layout_button.cget("text"), expected[language]["layout_button"])
             self.assertEqual(launcher.cards_by_key["inventory"]["button"].cget("text"),
                              expected[language]["button"])
 
     def test_unavailable_cards_cannot_launch_any_module(self):
         calls = []
         launcher = self.make_launcher(lambda manager: calls.append(manager))
-        for key in ("layout", "inventory", "forecasting", "mrp", "work_measurement", "optimization"):
+        for key in ("inventory", "forecasting", "mrp", "work_measurement", "optimization"):
             launcher.cards_by_key[key]["button"].invoke()
         self.assertEqual(calls, [])
+
+    def test_layout_card_routes_to_layout_callback(self):
+        calls = []
+        launcher = ApplicationLauncher(
+            self.root, lambda manager: None, self.settings_path,
+            open_layout=lambda manager: calls.append(manager),
+        )
+        self.root.update()
+        launcher.layout_button.invoke()
+        self.root.update()
+        self.assertEqual(calls, [launcher.theme_manager])
+        self.assertFalse(launcher.frame.winfo_exists())
 
     def test_spc_button_invokes_existing_application_callback_once(self):
         calls = []
@@ -173,11 +188,12 @@ class ApplicationLauncherTests(unittest.TestCase):
 
         for child in self.root.winfo_children():
             child.destroy()
-        restarted = ApplicationLauncher(self.root, lambda _manager: None, self.settings_path)
+        restarted = ApplicationLauncher(self.root, lambda _manager: None, self.settings_path,
+                                        open_layout=lambda _manager: None)
         self.root.update()
         self.assertEqual(restarted.current_lang, "id")
         self.assertEqual(restarted.theme_manager.mode, "dark")
-        self.assertEqual(restarted.layout_button.cget("text"), "Segera Hadir")
+        self.assertEqual(restarted.layout_button.cget("text"), "Buka Tata Letak")
         self.assertEqual(len(restarted.cards_by_key), 7)
 
 

@@ -4,6 +4,7 @@ import sys
 import tkinter as tk
 
 from ui.launcher import ApplicationLauncher
+from ui.layout_view import LayoutApplication
 from ui.main_page import MainPage
 
 
@@ -44,8 +45,13 @@ def main():
         root.protocol("WM_DELETE_WINDOW", close_spc)
         return app
 
+    def open_layout(theme_manager):
+        app = LayoutApplication(root, theme_manager=theme_manager)
+        app_state["layout"] = app
+        return app
+
     root.protocol("WM_DELETE_WINDOW", close_launcher)
-    ApplicationLauncher(root, open_spc)
+    ApplicationLauncher(root, open_spc, open_layout=open_layout)
     root.mainloop()
 
 
