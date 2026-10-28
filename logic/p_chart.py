@@ -101,7 +101,7 @@ class PChartConfigPopup(tk.Toplevel):
         self.main = main
         self.sheet = sheet
 
-        self.title("P Chart")
+        self.title(self.main.t("p_chart"))
 
         self.geometry("1000x650")
 
@@ -145,7 +145,7 @@ class PChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             left,
-            text="Available Columns",
+            text=self.main.t("available_columns"),
             font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
 
@@ -180,7 +180,7 @@ class PChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center,
-            text="Select →",
+            text=self.main.t("chart_select_column_action"),
             command=self.select_column
         ).pack(
             pady=(120, 10),
@@ -190,7 +190,7 @@ class PChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center,
-            text="← Remove",
+            text=self.main.t("chart_remove_column_action"),
             command=self.remove_column
         ).pack(
             pady=10,
@@ -200,7 +200,7 @@ class PChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             right,
-            text="Selected Columns",
+            text=self.main.t("chart_selected_columns"),
             font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
 
@@ -216,7 +216,7 @@ class PChartConfigPopup(tk.Toplevel):
 
         config = ttk.LabelFrame(
             right,
-            text="Configuration",
+            text=self.main.t("chart_configuration"),
             padding=10
         )
 
@@ -234,7 +234,7 @@ class PChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             config,
-            text="Subgroup Size"
+            text=self.main.t("chart_subgroup_size")
         ).pack(anchor="w")
 
         self.subgroup_var = tk.StringVar(
@@ -251,12 +251,12 @@ class PChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             config,
-            text="Default = 50"
+            text=self.main.t("chart_default_subgroup_fifty")
         ).pack(anchor="w")
 
         ttk.Button(
             config,
-            text="Generate P Chart",
+            text=self.main.t("chart_generate_p"),
             command=self.generate
         ).pack(
             fill="x",
@@ -404,7 +404,7 @@ class PChartPopup(EmbeddedChartFrame):
 
         self.results = localize_chart_results(results, self.main.current_lang)
 
-        self.title("P Charts")
+        self.title(self.main.t("p_chart"))
 
         self.state("zoomed")
 

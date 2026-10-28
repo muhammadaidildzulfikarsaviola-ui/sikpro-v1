@@ -150,11 +150,15 @@ class UI:
         center.pack(side="left", fill="both", expand=True)
 
         toolbar = tk.Frame(center, bg=panel_bg, height=42)
+        self.workspace_toolbar = toolbar
         toolbar.pack(fill="x", padx=18, pady=(10, 0))
         toolbar.pack_propagate(False)
         self.workspace_title = tk.Label(toolbar, text=self.main.t("data_input"), bg=panel_bg, fg=text_color,
                  font=("Segoe UI", 14, "bold"))
         self.workspace_title.pack(side="left", anchor="w")
+        self.workspace_tool_help_button = ttk.Button(
+            toolbar, text=self.main.t("quality_tool_help")
+        )
         self.chart_return_button = ttk.Button(toolbar, text=self.main.t("data_input"),
                                                command=self.select_data_input)
         self.context_toggle_button = ttk.Button(toolbar, text=self.main.t("hide_context"), command=self.toggle_context_panel)
@@ -193,9 +197,6 @@ class UI:
         self.context_help = tk.Label(self.context_panel, text=self.main.t("context_data_help"), bg="#f8fafc", fg=text_color,
                  font=("Segoe UI", 9), justify="left", wraplength=230)
         self.context_help.pack(anchor="w", padx=14, pady=(0, 14))
-        self.context_tool_help_button = ttk.Button(
-            self.context_panel, text=self.main.t("quality_tool_help")
-        )
         tk.Frame(self.context_panel, height=1, bg=border).pack(fill="x", padx=14)
         tk.Label(self.context_panel, text=self.main.t("analysis_history"), bg="#f8fafc", fg=text_color,
                  font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=14, pady=(12, 5))
@@ -240,7 +241,7 @@ class UI:
         self.chart_return_button.pack_forget()
         self.context_title.configure(text=self.main.t("input_guidance"))
         self.context_help.configure(text=self.main.t("context_data_help"))
-        self.context_tool_help_button.pack_forget()
+        self.workspace_tool_help_button.pack_forget()
         self.set_active_navigation("data_input")
 
     def prepare_chart_view(self):
@@ -256,7 +257,7 @@ class UI:
         self.chart_workspace.pack(fill="both", expand=True)
         self.context_title.configure(text=self.main.t("chart_context"))
         self.context_help.configure(text=self.main.t("chart_context_guidance"))
-        self.context_tool_help_button.pack_forget()
+        self.workspace_tool_help_button.pack_forget()
 
     def activate_chart_view(self, chart):
         self.active_chart_view = chart

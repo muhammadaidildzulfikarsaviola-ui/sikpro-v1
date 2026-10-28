@@ -78,7 +78,7 @@ class CChartConfigPopup(tk.Toplevel):
         self.main = main
         self.sheet = sheet
 
-        self.title("C Chart")
+        self.title(self.main.t("c_chart"))
 
         self.geometry("1000x650")
 
@@ -122,7 +122,7 @@ class CChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             left,
-            text="Available Columns",
+            text=self.main.t("available_columns"),
             font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
 
@@ -157,7 +157,7 @@ class CChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center,
-            text="Select →",
+            text=self.main.t("chart_select_column_action"),
             command=self.select_column
         ).pack(
             pady=(120, 10),
@@ -167,7 +167,7 @@ class CChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center,
-            text="← Remove",
+            text=self.main.t("chart_remove_column_action"),
             command=self.remove_column
         ).pack(
             pady=10,
@@ -177,7 +177,7 @@ class CChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             right,
-            text="Selected Columns",
+            text=self.main.t("chart_selected_columns"),
             font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
 
@@ -193,7 +193,7 @@ class CChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             right,
-            text="Generate C Chart",
+            text=self.main.t("chart_generate_c"),
             command=self.generate
         ).pack(
             fill="x",
@@ -321,7 +321,7 @@ class CChartPopup(EmbeddedChartFrame):
 
         self.results = localize_chart_results(results, self.main.current_lang)
 
-        self.title("C Charts")
+        self.title(self.main.t("c_chart"))
 
         self.state("zoomed")
 

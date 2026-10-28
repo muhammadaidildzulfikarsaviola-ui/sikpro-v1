@@ -59,7 +59,9 @@ def handle_validation_errors(function):
             main = getattr(self, "main", None)
             language = getattr(main, "current_lang", "id")
             is_english = language == "en"
-            title = ("Could not generate chart" if is_english else "Gagal membuat grafik")
+            title = main.t("chart_generate_failed") if hasattr(main, "t") else (
+                "Could not generate chart" if is_english else "Gagal membuat grafik"
+            )
             detail = str(exc)
             match = re.match(r"(.+): blank value at row (\d+)$", detail)
             if match:
@@ -85,6 +87,24 @@ def handle_validation_errors(function):
                 if source in detail:
                     detail = localized[0 if is_english else 1]
                     break
+            if hasattr(main, "t"):
+                match = re.fullmatch(
+                    r"Incomplete final subgroup: (\d+) observations is not divisible by (\d+)",
+                    detail,
+                )
+                if match:
+                    detail = main.t("chart_validation_incomplete_subgroup").format(
+                        count=match.group(1), size=match.group(2)
+                    )
+                match = re.fullmatch(r"Subgroup size must be between (\d+) and (\d+)", detail)
+                if match:
+                    detail = main.t("chart_validation_subgroup_range").format(
+                        minimum=match.group(1), maximum=match.group(2)
+                    )
+                if detail == "Subgroup size must be an integer":
+                    detail = main.t("chart_validation_subgroup_integer")
+                if detail == "At least two valid converted observations are required":
+                    detail = main.t("chart_validation_converted_observations")
             messagebox.showerror(
                 title,
                 detail if isinstance(exc, (ValueError, OverflowError, ZeroDivisionError)) else (

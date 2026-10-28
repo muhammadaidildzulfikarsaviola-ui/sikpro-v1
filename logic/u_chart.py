@@ -123,7 +123,7 @@ class UChartModePopup(tk.Toplevel):
         self.main = main
         self.sheet = sheet
 
-        self.title("Select U Chart Mode")
+        self.title(self.main.t("chart_select_u_mode"))
 
         self.geometry("320x200")
         center_window(self)
@@ -146,7 +146,7 @@ class UChartModePopup(tk.Toplevel):
 
         ttk.Label(
             container,
-            text="Select Data Source",
+            text=self.main.t("chart_select_data_source"),
             font=("Segoe UI", 11, "bold")
         ).pack(
             pady=(0, 20)
@@ -154,7 +154,7 @@ class UChartModePopup(tk.Toplevel):
 
         ttk.Button(
             container,
-            text="Use Raw Data",
+            text=self.main.t("chart_use_raw_data"),
             command=self.use_raw
         ).pack(
             fill="x",
@@ -164,7 +164,7 @@ class UChartModePopup(tk.Toplevel):
 
         ttk.Button(
             container,
-            text="Use Converted Data",
+            text=self.main.t("chart_use_converted_data"),
             command=self.use_converted
         ).pack(
             fill="x",
@@ -186,7 +186,7 @@ class UChartConfigPopup(tk.Toplevel):
         self.main = main
         self.sheet = sheet
 
-        self.title("U Chart")
+        self.title(self.main.t("u_chart"))
 
         self.geometry("1100x650")
         center_window(self)
@@ -232,7 +232,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             left,
-            text="Available Columns",
+            text=self.main.t("available_columns"),
             font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
 
@@ -267,7 +267,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         ttk.Label(
             right,
-            text="Distribution"
+            text=self.main.t("chart_distribution")
         ).pack(
             anchor="w",
             pady=(15, 0)
@@ -295,7 +295,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center,
-            text="Set as Defect Count →",
+            text=self.main.t("chart_set_defect_count"),
             command=self.set_defect_column
         ).pack(
             pady=(120, 10),
@@ -305,7 +305,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center,
-            text="Set as Sample Size →",
+            text=self.main.t("chart_set_sample_size"),
             command=self.set_sample_column
         ).pack(
             pady=10,
@@ -315,7 +315,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         config = ttk.LabelFrame(
             right,
-            text="Selected Columns",
+            text=self.main.t("chart_selected_columns"),
             padding=10
         )
 
@@ -325,7 +325,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         self.defect_label = ttk.Label(
             config,
-            text="Defect Count : -"
+            text=f'{self.main.t("chart_defect_count")} : -'
         )
 
         self.defect_label.pack(
@@ -335,7 +335,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         self.sample_label = ttk.Label(
             config,
-            text="Sample Size : -"
+            text=f'{self.main.t("chart_sample_size")} : -'
         )
 
         self.sample_label.pack(
@@ -345,7 +345,7 @@ class UChartConfigPopup(tk.Toplevel):
 
         ttk.Button(
             right,
-            text="Generate U Chart",
+            text=self.main.t("chart_generate_u"),
             command=self.generate
         ).pack(
             fill="x",
@@ -365,7 +365,7 @@ class UChartConfigPopup(tk.Toplevel):
         )
 
         self.defect_label.config(
-            text=f'Defect Count : {self.defect_column}'
+            text=f'{self.main.t("chart_defect_count")} : {self.defect_column}'
         )
 
     def set_sample_column(self):
@@ -380,7 +380,7 @@ class UChartConfigPopup(tk.Toplevel):
         )
 
         self.sample_label.config(
-            text=f'Sample Size : {self.sample_column}'
+            text=f'{self.main.t("chart_sample_size")} : {self.sample_column}'
         )
 
     @handle_validation_errors
@@ -498,7 +498,7 @@ class UChartPopup(EmbeddedChartFrame):
 
         self.save_to_history = save_to_history
 
-        self.title("U Chart")
+        self.title(self.main.t("u_chart"))
 
         self.state("zoomed")
 
@@ -673,7 +673,7 @@ class UChartPopup(EmbeddedChartFrame):
 
         info = ttk.LabelFrame(
             right,
-            text="Analysis Result",
+            text=self.main.t("chart_analysis_result"),
             padding=10
         )
 
@@ -771,7 +771,7 @@ class UChartConvertedPopup(tk.Toplevel):
         self.main = main
         self.sheet = sheet
 
-        self.title("U Chart - Converted Data")
+        self.title(self.main.t("chart_converted_u_title"))
 
         self.geometry("500x750")
         center_window(self)
@@ -794,7 +794,7 @@ class UChartConvertedPopup(tk.Toplevel):
 
         ttk.Label(
             container,
-            text="Using Converted Data",
+            text=self.main.t("chart_using_converted_data"),
             font=("Segoe UI", 11, "bold")
         ).pack(
             pady=(0, 20)
@@ -806,7 +806,7 @@ class UChartConvertedPopup(tk.Toplevel):
 
         ttk.Label(
             container,
-            text="Available Columns"
+            text=self.main.t("available_columns")
         ).pack(
             anchor="w"
         )
@@ -846,7 +846,7 @@ class UChartConvertedPopup(tk.Toplevel):
 
         ttk.Button(
             container,
-            text="Set as Converted Column",
+            text=self.main.t("chart_set_converted_column"),
             command=self.set_converted_column
         ).pack(
             fill="x",
@@ -855,7 +855,7 @@ class UChartConvertedPopup(tk.Toplevel):
 
         self.converted_label = ttk.Label(
             container,
-            text="Converted Column : -"
+            text=f'{self.main.t("chart_converted_column")} : -'
         )
 
         self.converted_label.pack(
@@ -876,7 +876,7 @@ class UChartConvertedPopup(tk.Toplevel):
 
         ttk.Button(
             container,
-            text="Generate U Chart",
+            text=self.main.t("chart_generate_u"),
             command=self.generate
         ).pack(
             fill="x",
@@ -895,7 +895,7 @@ class UChartConvertedPopup(tk.Toplevel):
         )
 
         self.converted_label.config(
-            text=f'Converted Column : {self.converted_column}'
+            text=f'{self.main.t("chart_converted_column")} : {self.converted_column}'
         )
 
     @handle_validation_errors

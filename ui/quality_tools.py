@@ -28,11 +28,11 @@ class ToolView(tk.Frame):
         self.host.context_help.configure(text=main.t(guidance_key))
         self.host.set_active_navigation(key)
         if key in QUALITY_TOOL_HELP["en"]:
-            self.host.context_tool_help_button.configure(
+            self.host.workspace_tool_help_button.configure(
                 text=main.t("quality_tool_help"),
                 command=self.open_help,
             )
-            self.host.context_tool_help_button.pack(anchor="w", padx=14, pady=(0, 12))
+            self.host.workspace_tool_help_button.pack(side="left", padx=(14, 0))
 
     def title(self, value=None):
         if value is not None:

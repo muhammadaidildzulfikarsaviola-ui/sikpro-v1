@@ -288,7 +288,7 @@ class XbarSConfigPopup(tk.Toplevel):
         self.main = main
         self.sheet = sheet
 
-        self.title("Xbar-S Chart")
+        self.title(self.main.t("xbar_s_chart"))
 
         self.geometry("1100x650")
 
@@ -333,7 +333,7 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Label(
             left_panel,
-            text="Available Columns",
+            text=self.main.t("available_columns"),
             font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
 
@@ -353,7 +353,7 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center_panel,
-            text="Select →",
+            text=self.main.t("chart_select_column_action"),
             command=self.select_column
         ).pack(
             pady=(120, 10),
@@ -363,7 +363,7 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Button(
             center_panel,
-            text="← Remove",
+            text=self.main.t("chart_remove_column_action"),
             command=self.remove_column
         ).pack(
             pady=10,
@@ -373,7 +373,7 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Label(
             right_panel,
-            text="Selected Columns",
+            text=self.main.t("chart_selected_columns"),
             font=("Segoe UI", 10, "bold")
         ).pack(anchor="w")
 
@@ -432,7 +432,7 @@ class XbarSConfigPopup(tk.Toplevel):
 
         config_frame = ttk.LabelFrame(
             right_panel,
-            text="Configuration",
+            text=self.main.t("chart_configuration"),
             padding=10
         )
 
@@ -450,7 +450,7 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Label(
             config_frame,
-            text="Subgroup Mode"
+            text=self.main.t("chart_subgroup_mode")
         ).pack(anchor="w")
 
         self.mode_var = tk.StringVar(
@@ -463,21 +463,21 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Radiobutton(
             config_frame,
-            text="Observations in one column",
+            text=self.main.t("chart_observations_one_column"),
             variable=self.mode_var,
             value="horizontal"
         ).pack(anchor="w")
 
         ttk.Radiobutton(
             config_frame,
-            text="Observations across columns",
+            text=self.main.t("chart_observations_across_columns"),
             variable=self.mode_var,
             value="vertical"
         ).pack(anchor="w")
 
         ttk.Label(
             config_frame,
-            text="Subgroup Size"
+            text=self.main.t("chart_subgroup_size")
         ).pack(
             anchor="w",
             pady=(15, 0)
@@ -497,13 +497,13 @@ class XbarSConfigPopup(tk.Toplevel):
 
         ttk.Label(
             config_frame,
-            text="Leave empty for default = 5"
+            text=self.main.t("chart_default_subgroup_five")
         ).pack(anchor="w")
         self.toggle_subgroup_entry()
 
         ttk.Button(
             config_frame,
-            text="Generate Xbar-S",
+            text=self.main.t("chart_generate_xbar_s"),
             command=self.generate
         ).pack(
             pady=(20, 0),
@@ -789,7 +789,7 @@ class XbarSChartPopup(EmbeddedChartFrame):
 
         self.results = localize_chart_results(results, self.main.current_lang)
 
-        self.title("Xbar-S Charts")
+        self.title(self.main.t("xbar_s_chart"))
 
         self.state("zoomed")
 

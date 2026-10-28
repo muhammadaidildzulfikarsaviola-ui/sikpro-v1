@@ -25,6 +25,56 @@ class ProjectManager:
         self.main.sheet
         self.current_project_path = None
         self.main.analysis_objects
+        self._saved_snapshot = None
+
+    def _snapshot(self):
+        """Canonical editable project state, independent of translated defaults."""
+        tools = self._serialize_tool_models()
+        for category in tools["fishbone"]["categories"]:
+            if category.get("default") and not category.get("renamed", False):
+                category["name"] = "<built-in>"
+        for category in tools["defect_concentration"]["categories"]:
+            if category.get("default") and not category.get("renamed", False):
+                category["name"] = "<built-in>"
+        content = {
+            "sheet_data": self.main.sheet.get_sheet_data(),
+            "sheet_headers": self.main.sheet.get_column_names(),
+            "sheet_generated_headers": self._sheet_generated_header_flags(),
+            "analyses": [analysis.to_dict() for analysis in self.main.analysis_objects],
+            "tool_models": tools,
+        }
+        return json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+    def _sheet_generated_header_flags(self):
+        getter = getattr(self.main.sheet, "get_generated_header_flags", None)
+        if getter:
+            return getter()
+        return [header == f"C{index + 1}" for index, header in enumerate(self.main.sheet.get_column_names())]
+
+    def _set_sheet_data_with_headers(self, data, headers, generated_headers=None):
+        setter = self.main.sheet.set_sheet_data_with_headers
+        if hasattr(self.main.sheet, "get_generated_header_flags"):
+            setter(data, headers, generated_headers)
+        else:
+            setter(data, headers)
+
+    def mark_saved(self):
+        self._saved_snapshot = self._snapshot()
+
+    def has_unsaved_changes(self):
+        # An uninitialized baseline must never be interpreted as a clean project.
+        if self._saved_snapshot is None:
+            return True
+        try:
+            return self._snapshot() != self._saved_snapshot
+        except Exception:
+            return True
+
+    def export_saved_state(self):
+        return self.current_project_path, self._saved_snapshot
+
+    def restore_saved_state(self, state):
+        self.current_project_path, self._saved_snapshot = state
 
 
     def new_project(self):
@@ -40,6 +90,7 @@ class ProjectManager:
         self.clear_all()
 
         self.current_project_path = None
+        self.mark_saved()
         return True
 
     def save_project(self):
@@ -48,6 +99,7 @@ class ProjectManager:
             return self.save_as_project()
         try:
             self._write_project(self.current_project_path)
+            self.mark_saved()
             return True
         except Exception as exc:
             messagebox.showerror(self.main.t("save"), f"Project save failed: {exc}", parent=self.main.root)
@@ -70,6 +122,7 @@ class ProjectManager:
             messagebox.showerror(self.main.t("save_as"), f"Project save failed: {exc}", parent=self.main.root)
             return False
         self.current_project_path = filepath
+        self.mark_saved()
         return True
 
     def load_project(self, filepath=None):
@@ -85,6 +138,7 @@ class ProjectManager:
                 project_data = json.load(file)
             staged = self._stage_project(project_data)
             self._install_project(staged, filepath)
+            self.mark_saved()
         except Exception as exc:
             messagebox.showerror(
                 self.main.t("load_project"),
@@ -126,7 +180,11 @@ class ProjectManager:
         data = df.values.tolist()
         headers = [str(column).strip() for column in df.columns]
 
-        self.main.sheet.set_sheet_data_with_headers(data, headers)
+        # Every non-empty Excel heading is user supplied, even when its text
+        # happens to look like an automatic name such as "C3".
+        self._set_sheet_data_with_headers(
+            data, headers, [not header.strip() for header in headers]
+        )
 
         messagebox.showinfo(
             self.main.t("import_excel"),
@@ -157,6 +215,7 @@ class ProjectManager:
             ],
             "sheet_data": self.main.sheet.get_sheet_data(),
             "sheet_headers": self.main.sheet.get_column_names(),
+            "sheet_generated_headers": self._sheet_generated_header_flags(),
             "tool_models": self._serialize_tool_models(),
         }
         # Serialize before touching the destination. Write to a sibling file so
@@ -229,6 +288,19 @@ class ProjectManager:
             column_count = max((len(row) for row in sheet_data), default=0)
             if len(sheet_headers) < column_count:
                 raise ValueError("Project sheet_headers must cover the worksheet columns")
+        generated_headers = project_data.get("sheet_generated_headers")
+        if generated_headers is not None:
+            if (not isinstance(generated_headers, list)
+                    or any(not isinstance(flag, bool) for flag in generated_headers)):
+                raise ValueError("Project sheet_generated_headers must be a list of booleans")
+            if sheet_headers is None or len(generated_headers) != len(sheet_headers):
+                raise ValueError("Project sheet_generated_headers must match sheet_headers")
+        elif sheet_headers is not None:
+            generated_headers = [
+                index >= len(sheet_headers) or not sheet_headers[index].strip()
+                or sheet_headers[index].strip() == f"C{index + 1}"
+                for index in range(len(sheet_headers))
+            ]
 
         from models.analysis import Analysis
         analyses = []
@@ -271,12 +343,14 @@ class ProjectManager:
             "analyses": analyses,
             "sheet_data": sheet_data,
             "sheet_headers": sheet_headers,
+            "sheet_generated_headers": generated_headers,
             "tool_models": restored_models,
         }
 
     def _install_project(self, staged, filepath):
         old_sheet = self.main.sheet.get_sheet_data()
         old_headers = self.main.sheet.get_column_names()
+        old_generated_headers = self._sheet_generated_header_flags()
         old_analyses = self.main.analysis_objects
         old_models = self.main.tool_models
         old_path = self.current_project_path
@@ -285,8 +359,9 @@ class ProjectManager:
             if staged["sheet_headers"] is None:
                 self.main.sheet.set_sheet_data(staged["sheet_data"])
             else:
-                self.main.sheet.set_sheet_data_with_headers(
-                    staged["sheet_data"], staged["sheet_headers"]
+                self._set_sheet_data_with_headers(
+                    staged["sheet_data"], staged["sheet_headers"],
+                    staged["sheet_generated_headers"],
                 )
             self.main.analysis_objects = []
             self.main.tool_models = staged["tool_models"]
@@ -295,7 +370,7 @@ class ProjectManager:
                 self.main.navigator.add_analysis(analysis)
             self.current_project_path = filepath
         except Exception:
-            self.main.sheet.set_sheet_data_with_headers(old_sheet, old_headers)
+            self._set_sheet_data_with_headers(old_sheet, old_headers, old_generated_headers)
             self.main.analysis_objects = old_analyses
             self.main.tool_models = old_models
             self.current_project_path = old_path

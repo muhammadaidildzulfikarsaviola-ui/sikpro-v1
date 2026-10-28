@@ -60,12 +60,15 @@ class ThemeManager:
         self.main = main
         self.settings_path = Path(settings_path) if settings_path else default_settings_path()
         self.mode = "light"
+        self.language = "en"
         self.last_persistence_error = None
         self._bound_root = None
         try:
             value = json.loads(self.settings_path.read_text(encoding="utf-8"))
-            if value.get("theme") in PALETTES:
+            if isinstance(value, dict) and value.get("theme") in PALETTES:
                 self.mode = value["theme"]
+            if isinstance(value, dict) and value.get("language") in ("en", "id"):
+                self.language = value["language"]
         except (OSError, ValueError, AttributeError):
             pass
 
@@ -92,6 +95,13 @@ class ThemeManager:
         if persist:
             self.save()
 
+    def set_language(self, language, persist=True):
+        if language not in ("en", "id"):
+            raise ValueError(f"Unknown language: {language}")
+        self.language = language
+        if persist:
+            self.save()
+
     def save(self):
         payload = {}
         try:
@@ -101,6 +111,7 @@ class ThemeManager:
         except (OSError, ValueError):
             pass
         payload["theme"] = self.mode
+        payload["language"] = self.language
         try:
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
             fd, temporary = tempfile.mkstemp(prefix="settings-", suffix=".tmp", dir=self.settings_path.parent)
