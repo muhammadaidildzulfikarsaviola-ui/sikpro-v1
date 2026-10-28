@@ -4,6 +4,7 @@ import sys
 import tkinter as tk
 
 from ui.launcher import ApplicationLauncher
+from ui.inventory_view import InventoryApplication
 from ui.layout_view import LayoutApplication
 from ui.main_page import MainPage
 
@@ -50,8 +51,13 @@ def main():
         app_state["layout"] = app
         return app
 
+    def open_inventory(theme_manager):
+        app = InventoryApplication(root, theme_manager=theme_manager)
+        app_state["inventory"] = app
+        return app
+
     root.protocol("WM_DELETE_WINDOW", close_launcher)
-    ApplicationLauncher(root, open_spc, open_layout=open_layout)
+    ApplicationLauncher(root, open_spc, open_layout=open_layout, open_inventory=open_inventory)
     root.mainloop()
 
 

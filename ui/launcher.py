@@ -10,15 +10,17 @@ class ApplicationLauncher:
     WINDOW_WIDTH = 960
     WINDOW_HEIGHT = 640
 
-    def __init__(self, root, open_spc, settings_path=None, open_layout=None):
+    def __init__(self, root, open_spc, settings_path=None, open_layout=None, open_inventory=None):
         self.root = root
         self.open_spc_callback = open_spc
         self.open_layout_callback = open_layout
+        self.open_inventory_callback = open_inventory
         self.theme_manager = ThemeManager(self, settings_path=settings_path)
         self.current_lang = self.theme_manager.language
         self.lang_data = LANG[self.current_lang]
         self._opening_spc = False
         self._opening_layout = False
+        self._opening_inventory = False
         self.root.title("SIKPRO")
         self.root.state("normal")
         self.root.resizable(False, False)
@@ -106,7 +108,10 @@ class ApplicationLauncher:
              "launcher_available" if self.open_layout_callback else "launcher_in_development",
              "launcher_open_layout" if self.open_layout_callback else "launcher_coming_soon",
              "layout", bool(self.open_layout_callback)),
-            ("inventory", "launcher_app_inventory", "launcher_inventory_description", "launcher_planned", "launcher_unavailable", "inventory", False),
+            ("inventory", "launcher_app_inventory", "launcher_inventory_description",
+             "launcher_available" if self.open_inventory_callback else "launcher_planned",
+             "launcher_open_inventory" if self.open_inventory_callback else "launcher_unavailable",
+             "inventory", bool(self.open_inventory_callback)),
             ("forecasting", "launcher_app_forecasting", "launcher_forecasting_description", "launcher_planned", "launcher_unavailable", "forecasting", False),
             ("mrp", "launcher_app_mrp", "launcher_mrp_description", "launcher_planned", "launcher_unavailable", "mrp", False),
             ("work_measurement", "launcher_app_work_measurement", "launcher_work_measurement_description", "launcher_planned", "launcher_unavailable", "work_measurement", False),
@@ -122,6 +127,7 @@ class ApplicationLauncher:
         self.layout_card = self.cards_by_key["layout"]["frame"]
         self.spc_button = self.cards_by_key["spc"]["button"]
         self.layout_button = self.cards_by_key["layout"]["button"]
+        self.inventory_button = self.cards_by_key["inventory"]["button"]
         cards.bind("<Configure>", self._resize_card_text)
 
     def _resize_card_text(self, event):
@@ -157,7 +163,8 @@ class ApplicationLauncher:
         description.grid(row=1, column=0, sticky="new", pady=(5, 5))
         self.card_description_labels.append(description)
         if enabled:
-            command = self.open_spc if key == "spc" else self.open_layout
+            command = {"spc": self.open_spc, "layout": self.open_layout,
+                       "inventory": self.open_inventory}[key]
             button = ttk.Button(card, text=self.t(action_key), command=command)
         else:
             button = ttk.Button(card, text=self.t(action_key), state="disabled")
@@ -229,6 +236,23 @@ class ApplicationLauncher:
             self._opening_layout = False
             self.layout_button.configure(state="normal")
             messagebox.showerror(self.t("error"), str(exc), parent=self.root)
+            return
+        self.frame.destroy()
+
+    def open_inventory(self):
+        if self._opening_inventory or not self.open_inventory_callback:
+            return
+        self._opening_inventory = True
+        self.inventory_button.configure(state="disabled")
+        try:
+            self.open_inventory_callback(self.theme_manager)
+        except Exception:
+            # A partially initialized workspace can point the shared theme
+            # manager at itself; restore the launcher as its live owner.
+            self.theme_manager.main = self
+            self._opening_inventory = False
+            self.inventory_button.configure(state="normal")
+            messagebox.showerror(self.t("error"), self.t("inv_err_store_open_failed"), parent=self.root)
             return
         self.frame.destroy()
 

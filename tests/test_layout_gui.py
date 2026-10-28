@@ -25,6 +25,7 @@ class LayoutWorkspaceGuiTests(unittest.TestCase):
 
     def tearDown(self):
         try:
+            self.root.update_idletasks()
             for after_id in self.root.tk.call("after", "info"):
                 try:
                     self.root.after_cancel(after_id)
@@ -60,6 +61,7 @@ class LayoutWorkspaceGuiTests(unittest.TestCase):
         self.assertEqual(created[0].current_lang, "id")
         self.assertEqual(created[0].theme_manager.mode, "dark")
         self.assertEqual(self.root.resizable(), (1, 1))
+        self.assertEqual(self.root.state(), "zoomed")
         self.assertIn("Tata Letak", self.root.title())
 
     def test_language_and_theme_switch_keep_current_input_and_models(self):
@@ -161,6 +163,7 @@ class LayoutWorkspaceGuiTests(unittest.TestCase):
                 if canvas.type(item) == "rectangle"
             ))
             self.assertNotEqual(alternate_box, initial_department_boxes[departments[0].id])
+            self.root.state("normal")
             self.root.geometry("1200x820+35+35")
             self.root.update()
             app.fit_button.invoke()

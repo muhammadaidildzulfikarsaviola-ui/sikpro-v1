@@ -32,10 +32,11 @@ class LayoutApplication:
         self._heading_translations = []
         self._drag_state = None
         self.root.title(self.t("layout_title"))
-        self.root.state("normal")
         self.root.resizable(True, True)
         self.root.minsize(900, 620)
-        self.root.geometry("1180x780")
+        # The launcher and SPC both use the same Tk root. Match SPC's startup
+        # behavior before building the layout widgets so no small window flashes.
+        self.root.state("zoomed")
         self.theme_manager.install(root)
         self.build()
         self.root.protocol("WM_DELETE_WINDOW", self.request_close)

@@ -29,6 +29,7 @@ class ApplicationLauncherTests(unittest.TestCase):
         return ApplicationLauncher(
             self.root, callback or (lambda _theme_manager: None), self.settings_path,
             open_layout=lambda _theme_manager: None,
+            open_inventory=lambda _theme_manager: None,
         )
 
     def test_seven_cards_use_three_column_grid_and_only_spc_is_available(self):
@@ -47,6 +48,8 @@ class ApplicationLauncherTests(unittest.TestCase):
         self.assertEqual(launcher.spc_button.cget("text"), "Open SPC")
         self.assertEqual(launcher.layout_button.cget("text"), "Open Layout")
         self.assertNotIn("disabled", launcher.layout_button.state())
+        self.assertEqual(launcher.inventory_button.cget("text"), "Open Inventory")
+        self.assertNotIn("disabled", launcher.inventory_button.state())
         self.assertEqual(len(launcher.cards_by_key), 7)
         self.assertEqual(
             [(key, int(card["frame"].grid_info()["row"]), int(card["frame"].grid_info()["column"]))
@@ -60,7 +63,8 @@ class ApplicationLauncherTests(unittest.TestCase):
                              launcher.frame.winfo_height())
         self.assertEqual(launcher.cards_by_key["spc"]["status"].cget("text"), "Available")
         self.assertEqual(launcher.cards_by_key["layout"]["status"].cget("text"), "Available")
-        for key in ("inventory", "forecasting", "mrp", "work_measurement", "optimization"):
+        self.assertEqual(launcher.cards_by_key["inventory"]["status"].cget("text"), "Available")
+        for key in ("forecasting", "mrp", "work_measurement", "optimization"):
             self.assertEqual(launcher.cards_by_key[key]["status"].cget("text"), "Planned")
         for key, card_data in launcher.cards_by_key.items():
             card = card_data["frame"]
@@ -69,7 +73,7 @@ class ApplicationLauncherTests(unittest.TestCase):
             self.assertLessEqual(card.winfo_y() + card.winfo_height(), launcher.cards.winfo_height())
             for child in card.winfo_children():
                 self.assertLessEqual(child.winfo_y() + child.winfo_height(), card.winfo_height())
-            if key not in ("spc", "layout"):
+            if key not in ("spc", "layout", "inventory"):
                 self.assertIn("disabled", card_data["button"].state())
 
     def test_translations_and_theme_are_applied_to_all_cards(self):
@@ -77,25 +81,27 @@ class ApplicationLauncherTests(unittest.TestCase):
         expected = {
             "en": {
                 "titles": ["SPC", "Layout", "Inventory", "Forecasting", "MRP", "Work Measurement", "Optimization"],
-                "statuses": ["Available", "Available"] + ["Planned"] * 5,
+                "statuses": ["Available", "Available", "Available"] + ["Planned"] * 4,
                 "descriptions": [
-                    "Analyze process variation", "Design factory layouts", "Track stock levels",
+                    "Analyze process variation", "Design factory layouts", "Track finished-goods stock",
                     "Estimate future demand", "Plan the materials", "Study work methods",
                     "Compare choices",
                 ],
                 "button": "Not Available Yet",
                 "layout_button": "Open Layout",
+                "inventory_button": "Open Inventory",
             },
             "id": {
                 "titles": ["SPC", "Tata Letak", "Persediaan", "Peramalan", "MRP", "Pengukuran Kerja", "Optimasi"],
-                "statuses": ["Tersedia", "Tersedia"] + ["Direncanakan"] * 5,
+                "statuses": ["Tersedia", "Tersedia", "Tersedia"] + ["Direncanakan"] * 4,
                 "descriptions": [
-                    "Analisis variasi proses", "Rancang tata letak", "Pantau jumlah stok",
+                    "Analisis variasi proses", "Rancang tata letak", "Pantau stok barang jadi",
                     "Perkirakan permintaan", "Rencanakan bahan", "Pelajari metode",
                     "Bandingkan pilihan",
                 ],
                 "button": "Belum Tersedia",
                 "layout_button": "Buka Tata Letak",
+                "inventory_button": "Buka Persediaan",
             },
         }
         for language, mode in (
@@ -123,13 +129,14 @@ class ApplicationLauncherTests(unittest.TestCase):
                                      card_data["frame"].winfo_height())
             self.assertEqual(launcher.spc_button.cget("text"), "Open SPC" if language == "en" else "Buka SPC")
             self.assertEqual(launcher.layout_button.cget("text"), expected[language]["layout_button"])
+            self.assertEqual(launcher.inventory_button.cget("text"), expected[language]["inventory_button"])
             self.assertEqual(launcher.cards_by_key["inventory"]["button"].cget("text"),
-                             expected[language]["button"])
+                             expected[language]["inventory_button"])
 
     def test_unavailable_cards_cannot_launch_any_module(self):
         calls = []
         launcher = self.make_launcher(lambda manager: calls.append(manager))
-        for key in ("inventory", "forecasting", "mrp", "work_measurement", "optimization"):
+        for key in ("forecasting", "mrp", "work_measurement", "optimization"):
             launcher.cards_by_key[key]["button"].invoke()
         self.assertEqual(calls, [])
 
@@ -145,6 +152,19 @@ class ApplicationLauncherTests(unittest.TestCase):
         self.assertEqual(calls, [launcher.theme_manager])
         self.assertFalse(launcher.frame.winfo_exists())
 
+    def test_inventory_card_routes_to_inventory_callback(self):
+        calls = []
+        launcher = ApplicationLauncher(
+            self.root, lambda manager: None, self.settings_path,
+            open_layout=lambda manager: None,
+            open_inventory=lambda manager: calls.append(manager),
+        )
+        self.root.update()
+        launcher.inventory_button.invoke()
+        self.root.update()
+        self.assertEqual(calls, [launcher.theme_manager])
+        self.assertFalse(launcher.frame.winfo_exists())
+
     def test_spc_button_invokes_existing_application_callback_once(self):
         calls = []
         launcher = self.make_launcher(lambda manager: calls.append(manager))
@@ -154,6 +174,15 @@ class ApplicationLauncherTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertIs(calls[0], launcher.theme_manager)
         self.assertFalse(launcher.frame.winfo_exists())
+
+    def test_spc_workspace_starts_maximized_on_existing_launcher_root(self):
+        launcher = self.make_launcher()
+        app = MainPage(self.root, theme_manager=launcher.theme_manager)
+        self.root.update()
+        self.assertIs(app.root, self.root)
+        self.assertEqual(self.root.state(), "zoomed")
+        self.assertEqual(len([child for child in self.root.winfo_children()
+                              if isinstance(child, tk.Toplevel)]), 0)
 
     def test_language_and_theme_persist_and_pass_to_spc(self):
         launcher = self.make_launcher()
@@ -189,11 +218,13 @@ class ApplicationLauncherTests(unittest.TestCase):
         for child in self.root.winfo_children():
             child.destroy()
         restarted = ApplicationLauncher(self.root, lambda _manager: None, self.settings_path,
-                                        open_layout=lambda _manager: None)
+                                        open_layout=lambda _manager: None,
+                                        open_inventory=lambda _manager: None)
         self.root.update()
         self.assertEqual(restarted.current_lang, "id")
         self.assertEqual(restarted.theme_manager.mode, "dark")
         self.assertEqual(restarted.layout_button.cget("text"), "Buka Tata Letak")
+        self.assertEqual(restarted.inventory_button.cget("text"), "Buka Persediaan")
         self.assertEqual(len(restarted.cards_by_key), 7)
 
 
