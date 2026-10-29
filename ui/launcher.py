@@ -246,13 +246,13 @@ class ApplicationLauncher:
         self.inventory_button.configure(state="disabled")
         try:
             self.open_inventory_callback(self.theme_manager)
-        except Exception:
+        except Exception as exc:
             # A partially initialized workspace can point the shared theme
             # manager at itself; restore the launcher as its live owner.
             self.theme_manager.main = self
             self._opening_inventory = False
             self.inventory_button.configure(state="normal")
-            messagebox.showerror(self.t("error"), self.t("inv_err_store_open_failed"), parent=self.root)
+            messagebox.showerror(self.t("error"), str(exc), parent=self.root)
             return
         self.frame.destroy()
 

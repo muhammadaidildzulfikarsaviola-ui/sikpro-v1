@@ -1,14 +1,11 @@
 import tkinter as tk
-from tkinter import ttk
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
 
-from inventory.persistence import InventoryStore
-from ui.launcher import ApplicationLauncher
 from ui.inventory_view import InventoryApplication
+from ui.launcher import ApplicationLauncher
 from ui.theme import ThemeManager
 
 
@@ -21,12 +18,11 @@ class InventoryWorkspaceGuiTests(unittest.TestCase):
         except tk.TclError as exc:
             self.skipTest(f"Tk display unavailable: {exc}")
         self.temp_dir = tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1])
-        self.path = Path(self.temp_dir.name) / "inventory.json"
-        self.settings = Path(self.temp_dir.name) / "settings.json"
-        manager = ThemeManager(SimpleNamespace(root=self.root), settings_path=self.settings)
+        settings = Path(self.temp_dir.name) / "settings.json"
+        manager = ThemeManager(SimpleNamespace(root=self.root), settings_path=settings)
         manager.set_language("en", persist=False)
         manager.set_theme("light", persist=False)
-        self.app = InventoryApplication(self.root, theme_manager=manager, data_path=self.path)
+        self.app = InventoryApplication(self.root, theme_manager=manager)
         self.root.update()
 
     def tearDown(self):
@@ -36,134 +32,126 @@ class InventoryWorkspaceGuiTests(unittest.TestCase):
                     self.root.after_cancel(after_id)
                 except tk.TclError:
                     pass
+            self.root.update_idletasks()
             self.root.destroy()
         except (AttributeError, tk.TclError):
             pass
         self.temp_dir.cleanup()
 
-    def _dialog(self):
+    def test_workspace_has_three_planning_tools_and_theme_language_switch(self):
+        self.assertEqual(len(self.app.tabs.tabs()), 3)
+        self.app.set_theme("dark")
+        self.app.set_language("id")
+        self.assertEqual(self.root.title(), "Kalkulator Perencanaan Persediaan")
+        self.assertEqual(self.app.theme_manager.mode, "dark")
+
+    def test_eoq_modes_localize_switch_and_calculate_shared_model(self):
+        self.app.eoq_vars["inv_annual_demand"].set("1000")
+        self.app.eoq_vars["inv_ordering_cost"].set("50")
+        self.app.eoq_vars["inv_holding_cost"].set("2")
+        self.app.calculate_eoq()
+        unit_text = self.app.eoq_result.cget("text")
+        self.assertIn("operating days", unit_text)
+        self.app.eoq_mode_selector.current(1)
+        self.app._show_eoq_mode()
+        self.root.update_idletasks()
+        self.assertEqual(self.app.eoq_vars["inv_operating_days__widget"].winfo_manager(), "")
+        self.assertEqual(self.app.eoq_vars["inv_unit_price__widget"].winfo_manager(), "grid")
+        self.app.eoq_vars["inv_unit_price"].set("4")
+        self.app.calculate_eoq()
+        cost_text = self.app.eoq_result.cget("text")
+        self.assertIn("Total annual cost including purchases", cost_text)
+        self.app.set_language("id")
+        self.assertEqual(tuple(self.app.eoq_mode_selector.cget("values")), ("EOQ Kuantitas (Unit)", "EOQ Analisis Biaya"))
+        self.assertEqual(self.app.eoq_mode_selector.current(), 1)
+
+    def test_theme_dropdown_uses_localized_labels_and_preserves_mode(self):
+        self.app.set_language("id")
+        self.assertEqual(tuple(self.app.theme_box.cget("values")), ("Terang", "Gelap"))
+        self.app.theme_box.current(1)
+        self.app.theme_box.event_generate("<<ComboboxSelected>>")
         self.root.update()
-        return next(widget for widget in self.root.winfo_children()
-                    if isinstance(widget, tk.Toplevel))
+        self.assertEqual(self.app.theme_manager.mode, "dark")
+        self.app.set_language("en")
+        self.assertEqual(tuple(self.app.theme_box.cget("values")), ("Light", "Dark"))
+        self.assertEqual(self.app.theme_var.get(), "Dark")
 
-    @staticmethod
-    def _descendants(widget):
-        result = []
-        for child in widget.winfo_children():
-            result.append(child)
-            result.extend(InventoryWorkspaceGuiTests._descendants(child))
-        return result
+    def test_inventory_forms_actions_help_and_results_do_not_overlap(self):
+        self.root.geometry("920x640+20+20")
+        self.root.update_idletasks()
 
-    def _enter_item(self, code="FG-1", name="Widget", minimum="3", opening="10"):
-        self.app.add_item()
-        dialog = self._dialog()
-        entries = sorted((widget for widget in self._descendants(dialog) if isinstance(widget, ttk.Entry)),
-                         key=lambda widget: int(widget.grid_info().get("row", 0)))
-        for entry, value in zip(entries, (code, name, "Assembly", "pcs", minimum, opening)):
-            entry.delete(0, "end")
-            entry.insert(0, value)
-        save = next(widget for widget in self._descendants(dialog)
-                    if isinstance(widget, ttk.Button) and widget.cget("text") == "Save")
-        save.invoke()
-        self.root.update()
+        def bottom(widget):
+            return widget.winfo_rooty() + widget.winfo_height()
 
-    def test_launcher_integration_uses_same_root_and_starts_maximized(self):
+        def top(widget):
+            return widget.winfo_rooty()
+
+        def verify_eoq(mode_index):
+            self.app.eoq_mode_selector.current(mode_index)
+            self.app._show_eoq_mode()
+            self.root.update_idletasks()
+            inputs = [self.app.eoq_vars[key + "__widget"] for key in
+                      ("inv_annual_demand", "inv_ordering_cost", "inv_holding_cost",
+                       "inv_operating_days" if mode_index == 0 else "inv_unit_price")]
+            actions = self.app.eoq_result.master.master.grid_slaves(row=2, column=0)[0]
+            self.assertGreaterEqual(top(actions), max(bottom(widget) for widget in inputs))
+            self.assertGreaterEqual(top(self.app.eoq_result.master), bottom(actions))
+
+        verify_eoq(0)
+        verify_eoq(1)
+        self.app.tabs.select(1)
+        self.root.update_idletasks()
+        rop_inputs = [self.app.rop_vars[key + "__widget"] for key in
+                      ("inv_average_demand", "inv_lead_time", "inv_safety_stock")]
+        rop_actions = self.app.rop_result.master.master.grid_slaves(row=1, column=0)[0]
+        self.assertGreaterEqual(top(rop_actions), max(bottom(widget) for widget in rop_inputs))
+        self.assertGreaterEqual(top(self.app.rop_result.master), bottom(rop_actions))
+        self.app.tabs.select(2)
+        self.root.update_idletasks()
+        mrp_inputs = [self.app.mrp_vars[key + "__widget"] for key in
+                      ("inv_periods", "inv_gross_requirements", "inv_initial_on_hand",
+                       "inv_scheduled_receipts", "inv_lead_time", "inv_lot_method",
+                       "inv_fixed_quantity", "inv_poq_interval")]
+        mrp_actions = self.app.mrp_output.master.grid_slaves(row=1, column=0)[0]
+        self.assertGreaterEqual(top(mrp_actions), max(bottom(widget) for widget in mrp_inputs))
+        self.assertGreaterEqual(top(self.app.mrp_help), bottom(mrp_actions))
+        self.assertGreaterEqual(top(self.app.mrp_output), bottom(self.app.mrp_help))
+        for width, height in ((1100, 760), (1000, 700)):
+            self.root.geometry(f"{width}x{height}+20+20")
+            self.root.update_idletasks()
+            self.assertGreaterEqual(top(mrp_actions), max(bottom(widget) for widget in mrp_inputs))
+            self.assertGreaterEqual(top(self.app.mrp_output), bottom(self.app.mrp_help))
+        self.app.set_theme("dark")
+        self.app.set_language("id")
+        self.root.update_idletasks()
+        self.assertEqual(len(self.app.tabs.tabs()), 3)
+        verify_eoq(0)
+        verify_eoq(1)
+
+    def test_spc_header_back_action_is_connected(self):
+        from ui.main_page import MainPage
+        calls = []
+        app = MainPage(self.root, theme_manager=self.app.theme_manager)
+        app.set_on_back(lambda: calls.append(True))
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+        back = next(widget for widget in descendants(app.root)
+                    if isinstance(widget, tk.Button) and widget.cget("text") == "Back to Apps")
+        back.invoke()
+        self.assertEqual(calls, [True])
+
+    def test_launcher_opens_calculator_on_shared_root(self):
         self.app.outer.destroy()
         opened = []
-        launcher = ApplicationLauncher(
-            self.root, lambda _manager: None, self.settings,
-            open_layout=lambda _manager: None,
-            open_inventory=lambda manager: opened.append(
-                InventoryApplication(self.root, theme_manager=manager, data_path=self.path)),
-        )
+        launcher = ApplicationLauncher(self.root, lambda _manager: None,
+            open_inventory=lambda manager: opened.append(InventoryApplication(self.root, theme_manager=manager)))
         launcher.inventory_button.invoke()
         self.root.update()
         self.app = opened[0]
         self.assertIs(self.app.root, self.root)
-        self.assertEqual(self.root.state(), "zoomed")
-        self.assertTrue(self.app.item_tree.winfo_ismapped())
-        self.assertTrue(self.app.recent_tree.winfo_ismapped())
-
-    def test_item_dialog_transaction_stocktake_search_and_adjustment_workflow(self):
-        self._enter_item()
-        item = self.app.book.items[0]
-        self.assertEqual(self.app.book.balance(item.id), 10)
-        self.assertEqual(self.app.active_value.cget("text"), "1")
-        self.assertEqual(self.app.item_tree.item(item.id, "values")[0], "FG-1")
-
-        self.app.item_tree.selection_set(item.id)
-        self.app._refresh_item_buttons()
-        self.app.open_transaction("out")
-        dialog = self._dialog()
-        entries = sorted((widget for widget in self._descendants(dialog) if isinstance(widget, ttk.Entry)),
-                         key=lambda widget: int(widget.grid_info().get("row", 0)))
-        for entry, value in zip(entries, ("8", "SO-9", "Customer delivery")):
-            entry.insert(0, value)
-        next(widget for widget in self._descendants(dialog)
-             if isinstance(widget, ttk.Button) and widget.cget("text") == "Save").invoke()
-        self.root.update()
-        self.assertEqual(self.app.book.balance(item.id), 2)
-        self.assertEqual(self.app.low_value.cget("text"), "1")
-        self.assertEqual(len(self.app.transaction_tree.get_children()), 1)
-
-        self.app.search_var.set("does-not-match")
-        self.app._refresh_items()
-        self.assertEqual(self.app.item_tree.item("__empty__", "values")[0], self.app.t("inv_no_items"))
-        self.app.search_var.set("")
-        self.app._refresh_items()
-        self.app.count_var.set("1")
-        self.app.count_notes_var.set("One item missing")
-        self.app.record_stocktake()
-        stocktake = self.app.book.stocktakes[0]
-        self.assertEqual(stocktake.system_stock, 2)
-        self.assertEqual(stocktake.variance, -1)
-        self.assertEqual(self.app.book.balance(item.id), 2)
-        self.app.stocktake_tree.selection_set(stocktake.id)
-        self.app._refresh_adjustment_state()
-        self.app.adjustment_reason_var.set("Approved recount adjustment")
-        self.app.adjust_stocktake()
-        self.assertEqual(self.app.book.balance(item.id), 1)
-        self.assertEqual(self.app.book.adjustments[0].reason, "Approved recount adjustment")
-        self.assertIn("Approved recount adjustment",
-                      self.app.stocktake_tree.item(stocktake.id, "values")[-1])
-
-    def test_help_language_theme_and_saved_data_are_independent(self):
-        self._enter_item(code="FG-ID")
-        item_id = self.app.book.items[0].id
-        before = self.app.book.to_dict()
-        self.app.set_theme("dark")
-        self.app.set_language("id")
-        self.root.update()
-        self.assertEqual(self.root.title(), "Persediaan Barang Jadi")
-        self.assertEqual(self.app.book.to_dict(), before)
-        self.assertEqual(self.app.theme_manager.mode, "dark")
-        self.assertEqual(self.app.theme_manager.language, "id")
-        self.app.open_help()
-        dialog = self._dialog()
-        content = next(widget for widget in self._descendants(dialog) if isinstance(widget, tk.Text))
-        self.assertIn("stok sistem", content.get("1.0", "end").casefold())
-        self.assertEqual(self.app.book.to_dict(), before)
-        dialog.destroy()
-        self.app.request_close()
-        reopened = InventoryStore(self.path)
-        self.assertEqual(reopened.book.balance(item_id), 10)
-
-    def test_failed_ui_save_keeps_dialog_open_and_inventory_unchanged(self):
-        self.app.add_item()
-        dialog = self._dialog()
-        entries = sorted((widget for widget in self._descendants(dialog) if isinstance(widget, ttk.Entry)),
-                         key=lambda widget: int(widget.grid_info().get("row", 0)))
-        for entry, value in zip(entries, ("FG-1", "Widget", "", "pcs", "0", "5")):
-            entry.delete(0, "end")
-            entry.insert(0, value)
-        with patch("ui.inventory_view.messagebox.showerror") as error:
-            with patch.object(self.app.store, "_write", side_effect=OSError("disk unavailable")):
-                next(widget for widget in self._descendants(dialog)
-                     if isinstance(widget, ttk.Button) and widget.cget("text") == "Save").invoke()
-        self.root.update()
-        self.assertTrue(dialog.winfo_exists())
-        self.assertEqual(self.app.book.items, [])
-        self.assertTrue(error.called)
+        self.assertEqual(len(self.app.tabs.tabs()), 3)
 
 
 if __name__ == "__main__":

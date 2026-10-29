@@ -106,6 +106,10 @@ class UI:
         header = tk.Frame(root, bg=panel_bg, height=48)
         header.pack(fill="x")
         header.pack_propagate(False)
+        self.back_to_apps_button = tk.Button(
+            header, text=self.main.t("back_to_apps"),
+            command=lambda: getattr(self.main, "on_back", lambda: None)())
+        self.back_to_apps_button.pack(side="right", padx=12)
         tk.Label(header, text="SIKPRO", bg=panel_bg, fg=accent,
                  font=("Segoe UI", 15, "bold")).pack(side="left", padx=(18, 12))
         tk.Frame(header, width=1, bg=border).pack(side="left", fill="y", pady=10)

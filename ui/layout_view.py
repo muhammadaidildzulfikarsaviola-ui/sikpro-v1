@@ -44,6 +44,11 @@ class LayoutApplication:
     def t(self, key):
         return self.lang_data.get(key, key)
 
+    def set_on_back(self, callback):
+        self.on_back = callback
+        if hasattr(self, "back_button") and self.back_button.winfo_exists():
+            self.back_button.configure(command=lambda: self.on_back() if self.on_back else None)
+
     @property
     def palette(self):
         return self.theme_manager.palette
@@ -80,6 +85,8 @@ class LayoutApplication:
         self.pdf_button = self._button(bar, "layout_file_pdf", self.export_report_pdf)
         self.pdf_button.pack(side="left", padx=4)
         self._button(bar, "layout_file_help", self.open_help).pack(side="left", padx=4)
+        self.back_button = ttk.Button(bar, text=self.t("back_to_apps"), command=lambda: self.on_back() if getattr(self, "on_back", None) else None)
+        self.back_button.pack(side="left", padx=4)
         self.language_var = tk.StringVar(value="English" if self.current_lang == "en" else "Bahasa Indonesia")
         language = ttk.Combobox(bar, textvariable=self.language_var, state="readonly", width=17,
                                 values=("English", "Bahasa Indonesia"))
@@ -275,6 +282,7 @@ class LayoutApplication:
         self.language_var.set("English" if language == "en" else "Bahasa Indonesia")
         self.theme_box.configure(values=(self.t("light"), self.t("dark")))
         self.theme_var.set(self.t(self.theme_manager.mode))
+        self.back_button.configure(text=self.t("back_to_apps"))
         self._update_details()
         self._update_path_label()
         self.draw_layout()
@@ -335,7 +343,11 @@ class LayoutApplication:
 
     def request_close(self):
         if self._confirm_unsaved():
-            self.root.destroy()
+            callback = getattr(self, "on_back", None)
+            if callback:
+                callback()
+            else:
+                self.root.destroy()
 
     def new_project(self):
         if not self._confirm_unsaved():

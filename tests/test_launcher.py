@@ -48,7 +48,7 @@ class ApplicationLauncherTests(unittest.TestCase):
         self.assertEqual(launcher.spc_button.cget("text"), "Open SPC")
         self.assertEqual(launcher.layout_button.cget("text"), "Open Layout")
         self.assertNotIn("disabled", launcher.layout_button.state())
-        self.assertEqual(launcher.inventory_button.cget("text"), "Open Inventory")
+        self.assertEqual(launcher.inventory_button.cget("text"), "Open Calculator")
         self.assertNotIn("disabled", launcher.inventory_button.state())
         self.assertEqual(len(launcher.cards_by_key), 7)
         self.assertEqual(
@@ -83,25 +83,25 @@ class ApplicationLauncherTests(unittest.TestCase):
                 "titles": ["SPC", "Layout", "Inventory", "Forecasting", "MRP", "Work Measurement", "Optimization"],
                 "statuses": ["Available", "Available", "Available"] + ["Planned"] * 4,
                 "descriptions": [
-                    "Analyze process variation", "Design factory layouts", "Track finished-goods stock",
+                    "Analyze process variation", "Design factory layouts", "Plan EOQ, reorder points",
                     "Estimate future demand", "Plan the materials", "Study work methods",
                     "Compare choices",
                 ],
                 "button": "Not Available Yet",
                 "layout_button": "Open Layout",
-                "inventory_button": "Open Inventory",
+                "inventory_button": "Open Calculator",
             },
             "id": {
                 "titles": ["SPC", "Tata Letak", "Persediaan", "Peramalan", "MRP", "Pengukuran Kerja", "Optimasi"],
                 "statuses": ["Tersedia", "Tersedia", "Tersedia"] + ["Direncanakan"] * 4,
                 "descriptions": [
-                    "Analisis variasi proses", "Rancang tata letak", "Pantau stok barang jadi",
+                    "Analisis variasi proses", "Rancang tata letak", "Rencanakan EOQ",
                     "Perkirakan permintaan", "Rencanakan bahan", "Pelajari metode",
                     "Bandingkan pilihan",
                 ],
                 "button": "Belum Tersedia",
                 "layout_button": "Buka Tata Letak",
-                "inventory_button": "Buka Persediaan",
+                "inventory_button": "Buka Kalkulator",
             },
         }
         for language, mode in (
@@ -224,7 +224,7 @@ class ApplicationLauncherTests(unittest.TestCase):
         self.assertEqual(restarted.current_lang, "id")
         self.assertEqual(restarted.theme_manager.mode, "dark")
         self.assertEqual(restarted.layout_button.cget("text"), "Buka Tata Letak")
-        self.assertEqual(restarted.inventory_button.cget("text"), "Buka Persediaan")
+        self.assertEqual(restarted.inventory_button.cget("text"), "Buka Kalkulator")
         self.assertEqual(len(restarted.cards_by_key), 7)
 
 

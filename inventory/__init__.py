@@ -1,2 +1,2 @@
-"""Finished-goods inventory management for SIKPRO."""
+"""Inventory planning calculators for SIKPRO."""
 

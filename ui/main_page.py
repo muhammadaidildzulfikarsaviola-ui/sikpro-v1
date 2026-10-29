@@ -14,6 +14,7 @@ class MainPage:
         self.root.title("SPC App")
         self.root.resizable(True, True)
         self.root.state("zoomed")
+        self.on_back = None
 
         self.theme_manager = theme_manager or ThemeManager(self)
         self.theme_manager.main = self
@@ -30,6 +31,13 @@ class MainPage:
         
     def t(self, key):
         return self.lang_data.get(key, key)
+
+    def set_on_back(self, callback):
+        self.on_back = callback
+        button = getattr(self.ui, "back_to_apps_button", None)
+        if button is not None and button.winfo_exists():
+            button.configure(command=lambda: self.on_back() if self.on_back else None,
+                             text=self.t("back_to_apps"))
 
     def set_theme(self, theme):
         self.theme_manager.set_theme(theme)
